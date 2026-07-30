@@ -58,6 +58,7 @@
         initializeApp(firebaseConfig);
         const db = getFirestore();
 
+
         let map, markerCamion, markerDestino, geocoder;
         let esPrimeraUbicacion = true; // BANDERA PARA EL MAPA
 
@@ -65,20 +66,27 @@
         const arrancarMapa = () => {
             geocoder = new google.maps.Geocoder();
             map = new google.maps.Map(document.getElementById("mapa"), {
-                center: { lat: 20.9167, lng: -104.0333 },
+                // Coordenadas actualizadas a formato decimal
+                center: { lat: 20.922694, lng: -104.091833 },
                 zoom: 15,
                 disableDefaultUI: true
             });
 
-            markerCamion = new google.maps.Marker({
-                map: map,
-                optimized: false,
-                icon: {
-                    url: 'https://lh3.googleusercontent.com/d/1BO70O8A3Qf0qPeoFoCqezV3G0sNZMkc4',
-                    scaledSize: new google.maps.Size(40, 40),
-                    anchor: new google.maps.Point(20, 40)
-                }
-            });
+            const posicionInicial = {
+    lat: 20.922694,
+    lng: -104.091833
+};
+
+markerCamion = new google.maps.Marker({
+    position: posicionInicial,
+    map: map,
+    optimized: false,
+    icon: {
+        url: 'https://lh3.googleusercontent.com/d/1BO70O8A3Qf0qPeoFoCqezV3G0sNZMkc4',
+        scaledSize: new google.maps.Size(40, 40),
+        anchor: new google.maps.Point(20, 40)
+    }
+});
 
             markerDestino = new google.maps.Marker({
                 map: map,
