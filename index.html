@@ -15,6 +15,12 @@
         .detalles-repartidor { display: flex; align-items: center; margin-top: 16px; padding-top: 16px; border-top: 1px solid #eee; }
         .icono-camion { font-size: 24px; margin-right: 12px; background: #f0f0f0; padding: 10px; border-radius: 50%; }
     </style>
+    
+    <!-- SOLUCIÓN: Declaramos initMap temporalmente en el scope global para evitar el error si Maps carga antes que el módulo -->
+    <script>
+        window.initMap = function() { window.mapaListo = true; };
+    </script>
+    
     <!-- Agregamos el callback para asegurar que Google cargue antes que tu código -->
     <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC6WVTfKxF7XrOIXFXW0Bsg1mC_edDVI-0&libraries=geocoding&callback=initMap"></script>
 </head>
@@ -55,8 +61,8 @@
         let map, markerCamion, markerDestino, geocoder;
         let esPrimeraUbicacion = true; // BANDERA PARA EL MAPA
 
-        // Función global para Google Maps
-        window.initMap = () => {
+        // Función centralizada para arrancar el mapa
+        const arrancarMapa = () => {
             geocoder = new google.maps.Geocoder();
             map = new google.maps.Map(document.getElementById("mapa"), {
                 center: { lat: 20.9167, lng: -104.0333 },
@@ -81,6 +87,13 @@
 
             iniciarEscuchaFirebase();
         };
+
+        // Lógica de sincronización de carga
+        if (window.mapaListo) {
+            arrancarMapa(); // Si Maps cargó primero, inicializamos directo
+        } else {
+            window.initMap = arrancarMapa; // Si el módulo cargó primero, Maps la llamará cuando termine
+        }
 
         function iniciarEscuchaFirebase() {
             onSnapshot(doc(db, "envios", "entrega1"), (docSnap) => {
