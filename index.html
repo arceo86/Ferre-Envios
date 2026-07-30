@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rastreo - Ferretería Granados</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; height: 100vh; background-color: #f5f5f5; }
+        #mapa { flex: 1; width: 100%; z-index: 1; }
+        .panel-info { background: white; padding: 24px; border-top-left-radius: 24px; border-top-right-radius: 24px; box-shadow: 0 -4px 15px rgba(0,0,0,0.1); z-index: 10; margin-top: -20px; }
+        .etiqueta-estado { display: inline-block; background: #d32f2f; color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 12px; }
+        .titulo { margin: 0 0 8px 0; font-size: 20px; color: #1a1a1a; }
+        .subtitulo { margin: 0; color: #666; font-size: 14px; }
+        .detalles-repartidor { display: flex; align-items: center; margin-top: 16px; padding-top: 16px; border-top: 1px solid #eee; }
+        .icono-camion { font-size: 24px; margin-right: 12px; background: #f0f0f0; padding: 10px; border-radius: 50%; }
+    </style>
+    <!-- Agregamos el callback para asegurar que Google cargue antes que tu código -->
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC6WVTfKxF7XrOIXFXW0Bsg1mC_edDVI-0&libraries=geocoding&callback=initMap"></script>
+</head>
+<body>
+
+    <div id="mapa"></div>
+
+    <div class="panel-info">
+        <span class="etiqueta-estado" id="estado-texto" style="background: #f9ab00;">INICIANDO...</span>
+        <h2 class="titulo" id="titulo-principal">Cargando...</h2>
+        <p class="subtitulo" id="subtitulo-destino">Ferretería Granados</p>
+        
+        <div class="detalles-repartidor">
+            <div class="icono-camion">🚚</div>
+            <div>
+                <p style="margin: 0; font-weight: 600; font-size: 15px;">Repartidor local</p>
+                <p style="margin: 2px 0 0 0; font-size: 13px; color: #666;">Vehículo de carga</p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBNC-Oh6i2wyZMRiailIoYZ8rzpjN-6wBo",
+            authDomain: "ferreteria-envios.firebaseapp.com",
+            projectId: "ferreteria-envios",
+            storageBucket: "ferreteria-envios.firebasestorage.app",
+            messagingSenderId: "871957193583",
+            appId: "1:871957193583:web:e093c54efa0919b142be9a"
+        };
+
+        initializeApp(firebaseConfig);
+        const db = getFirestore();
+
+        let map, markerCamion, markerDestino, geocoder;
+        let esPrimeraUbicacion = true; // BANDERA PARA EL MAPA
+
+        // Función global para Google Maps
+        window.initMap = () => {
+            geocoder = new google.maps.Geocoder();
+            map = new google.maps.Map(document.getElementById("mapa"), {
+                center: { lat: 20.9167, lng: -104.0333 },
+                zoom: 15,
+                disableDefaultUI: true
+            });
+
+            markerCamion = new google.maps.Marker({
+                map: map,
+                optimized: false,
+                icon: {
+                    url: 'https://lh3.googleusercontent.com/d/1BO70O8A3Qf0qPeoFoCqezV3G0sNZMkc4',
+                    scaledSize: new google.maps.Size(40, 40),
+                    anchor: new google.maps.Point(20, 40)
+                }
+            });
+
+            markerDestino = new google.maps.Marker({
+                map: map,
+                icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
+            });
+
+            iniciarEscuchaFirebase();
+        };
+
+        function iniciarEscuchaFirebase() {
+            onSnapshot(doc(db, "envios", "entrega1"), (docSnap) => {
+                if (!docSnap.exists() || !map) return;
+                const data = docSnap.data();
+
+                // 1. Actualizar Marcador Camión
+                if (data.latitud && data.longitud) {
+                    const pos = { lat: data.latitud, lng: data.longitud };
+                    markerCamion.setPosition(pos);
+                    
+                    // Solo centrar la primera vez
+                    if (esPrimeraUbicacion) {
+                        map.panTo(pos);
+                        esPrimeraUbicacion = false;
+                    }
+                }
+
+                // 2. Geocodificar Destino
+                if (data.destino) {
+                    document.getElementById('subtitulo-destino').innerText = `Destino: ${data.destino}`;
+                    geocoder.geocode({ 'address': data.destino }, (results, status) => {
+                        if (status === 'OK' && markerDestino) {
+                            markerDestino.setPosition(results[0].geometry.location);
+                        }
+                    });
+                }
+
+                // 3. Estados
+                const estadoTexto = document.getElementById('estado-texto');
+                const titulo = document.getElementById('titulo-principal');
+
+                switch(data.estado) {
+                    case "entregado":
+                        estadoTexto.innerText = "ENTREGADO";
+                        estadoTexto.style.background = "#2e7d32";
+                        titulo.innerText = "¡Tu material ha llegado!";
+                        break;
+                    case "en_camino":
+                        estadoTexto.innerText = "EN CAMINO";
+                        estadoTexto.style.background = "#d32f2f";
+                        titulo.innerText = "Tu material está en camino";
+                        break;
+                    case "en_preparacion":
+                        estadoTexto.innerText = "PREPARANDO";
+                        estadoTexto.style.background = "#f9ab00";
+                        titulo.innerText = "Preparando tu material...";
+                        break;
+                    case "cancelado":
+                        estadoTexto.innerText = "CANCELADO";
+                        estadoTexto.style.background = "#666";
+                        titulo.innerText = "Pedido cancelado";
+                        break;
+                }
+            });
+        }
+    </script>
+</body>
+</html>
