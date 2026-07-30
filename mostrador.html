@@ -2,165 +2,149 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Despacho | Ferretería Granados</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
-        :root { --naranja: #FF9800; --naranja-oscuro: #F57C00; --rojo: #d32f2f; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f4f4; display: flex; justify-content: center; padding: 20px; }
-        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); width: 100%; max-width: 450px; border-top: 8px solid var(--naranja); }
-        h1 { color: var(--naranja); text-transform: uppercase; text-align: center; font-size: 20px; margin-bottom: 20px; }
-        input, select { width: 100%; padding: 12px; margin: 5px 0; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; color: white; }
-        .btn-despacho { background: var(--naranja); }
-        .btn-accion { background: #555; }
-        .btn-eliminar { background: var(--rojo); }
-        .section { margin-top: 20px; padding-top: 20px; border-top: 2px dashed #eee; }
+        body { font-family: 'Inter', sans-serif; }
+        .action-card { transition: all 0.3s ease; }
+        .action-card:hover { transform: translateY(-2px); }
+        .btn-hover:hover { filter: brightness(1.1); }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
     </style>
 </head>
-<body>
+<body class="bg-slate-50 min-h-screen p-4 flex flex-col items-center">
 
-    <div class="card">
-        <h1>Ferretería Granados</h1>
+    <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 border border-slate-100">
         
-        <select id="selectCliente" onchange="cargarCliente()">
-            <option value="">-- Seleccionar Cliente --</option>
-        </select>
-        
-        <input id="docId" type="hidden">
-        <input id="cliente" placeholder="👤 Nombre del Cliente">
-        <input id="destino" placeholder="📍 Calle y Número (ej: Juárez 10)">
-        
-        <button class="btn-despacho" onclick="registrarEnvio()">🚀 Registrar y Enviar al Mapa</button>
-        <button class="btn-accion" onclick="guardarCambios()">💾 Guardar Cambios</button>
-        <button class="btn-eliminar" onclick="eliminarCliente()">🗑️ Eliminar Cliente</button>
-        <button class="btn-eliminar" style="background:#ff9800" onclick="cancelarEnvio()">🚫 Cancelar Pedido</button>
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">FERRETERIA GRANADOS</h1>
+            <p class="text-slate-500 font-medium mt-1">Panel de Control de Despacho</p>
+        </header>
 
-        <div class="section">
-            <h3 style="font-size: 14px; color: #666;">+ Agregar nuevo cliente</h3>
-            <button class="btn-accion" style="background:#4CAF50" onclick="agregarNuevo()">Guardar como nuevo</button>
+        <div class="space-y-6">
+            <div class="space-y-2">
+                <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">ID Cliente</label>
+                <input type="text" id="docId" class="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all" placeholder="Ej: CL-001">
+            </div>
+
+            <div class="space-y-4">
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Nombre del Cliente</label>
+                    <input type="text" id="cliente" class="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all">
+                </div>
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Destino</label>
+                    <input type="text" id="destino" class="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 mt-8">
+                <button class="col-span-2 btn-hover bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-100 flex items-center justify-center gap-2" onclick="registrarEnvio()">
+                    <span>🚀</span> Registrar y Enviar
+                </button>
+                <button class="btn-hover bg-emerald-600 text-white font-semibold py-3 rounded-xl shadow-lg shadow-emerald-50" onclick="guardarCambios()">💾 Guardar</button>
+                <button class="btn-hover bg-amber-500 text-white font-semibold py-3 rounded-xl shadow-lg shadow-amber-50" onclick="cancelarEnvio()">🚫 Cancelar</button>
+                <button class="col-span-2 btn-hover bg-rose-600 text-white font-semibold py-3 rounded-xl shadow-lg shadow-rose-50" onclick="eliminarCliente()">🗑️ Eliminar Cliente</button>
+            </div>
+
+            <div id="resultado" class="text-center text-sm font-semibold p-4 rounded-xl hidden"></div>
         </div>
 
-        <div id="resultado" style="margin-top:20px;"></div>
+        <div class="mt-10 border-t border-slate-100 pt-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-4">Historial del Día</h3>
+            <div id="historial-lista" class="space-y-3 max-h-60 overflow-y-auto custom-scrollbar pr-2">
+                <!-- Aquí se cargarán los pedidos dinámicamente -->
+                <p class="text-slate-400 text-sm text-center italic">Cargando historial...</p>
+            </div>
+        </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getFirestore, collection, getDocs, addDoc, doc, updateDoc, deleteDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, deleteDoc, collection, query, orderBy, onSnapshot, limit } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        // Asegúrate de usar tu API Key RESTRICTED
-        const firebaseConfig = { 
-            apiKey: "TU_API_KEY_RESTRINGIDA", 
-            authDomain: "ferreteria-envios.firebaseapp.com",
-            projectId: "ferreteria-envios",
-            storageBucket: "ferreteria-envios.firebasestorage.app",
-            messagingSenderId: "871957193583",
-            appId: "1:871957193583:web:e093c54efa0919b142be9a" 
+        const firebaseConfig = {
+            apiKey: "TU_API_KEY",
+            authDomain: "tu-proyecto.firebaseapp.com",
+            projectId: "tu-proyecto-id",
+            storageBucket: "tu-proyecto.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abcdef"
         };
-        const db = getFirestore(initializeApp(firebaseConfig));
         
-        let listaClientes = [];
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
 
-        async function cargarLista() {
-            const querySnapshot = await getDocs(collection(db, "clientes"));
-            const select = document.getElementById('selectCliente');
-            select.innerHTML = '<option value="">-- Seleccionar Cliente --</option>';
-            listaClientes = [];
-            
-            querySnapshot.forEach((doc) => {
+        // --- Historial Realtime ---
+        const historialLista = document.getElementById('historial-lista');
+        const q = query(collection(db, "envios"), orderBy("ultimaActualizacion", "desc"), limit(10));
+        
+        onSnapshot(q, (snapshot) => {
+            historialLista.innerHTML = '';
+            snapshot.forEach((doc) => {
                 const data = doc.data();
-                listaClientes.push({ id: doc.id, ...data });
-                let opt = document.createElement('option');
-                opt.value = listaClientes.length - 1;
-                opt.innerHTML = data.nombre;
-                select.appendChild(opt);
-            });
-        }
+                const color = data.estado === 'entregado' ? 'bg-green-100 text-green-700' : 
+                              data.estado === 'en_camino' ? 'bg-blue-100 text-blue-700' : 
+                              data.estado === 'cancelado' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700';
 
-        window.cargarCliente = () => {
-            const idx = document.getElementById('selectCliente').value;
-            if(idx !== "") {
-                const c = listaClientes[idx];
-                document.getElementById('docId').value = c.id;
-                document.getElementById('cliente').value = c.nombre;
-                document.getElementById('destino').value = c.direccion;
-            }
+                const div = document.createElement('div');
+                div.className = "p-3 rounded-xl bg-slate-50 border border-slate-100 flex justify-between items-center";
+                div.innerHTML = `
+                    <div>
+                        <p class="font-bold text-sm text-slate-800">${data.cliente || 'Sin nombre'}</p>
+                        <p class="text-xs text-slate-500 truncate w-32">${data.destino || 'Sin destino'}</p>
+                    </div>
+                    <span class="text-[10px] font-bold px-2 py-1 rounded-full ${color} uppercase">${data.estado}</span>
+                `;
+                historialLista.appendChild(div);
+            });
+        });
+
+        // --- Funciones de Accion ---
+        const resBox = document.getElementById('resultado');
+        
+        window.limpiarFormulario = () => {
+            document.getElementById('cliente').value = '';
+            document.getElementById('destino').value = '';
+            document.getElementById('docId').value = '';
         };
 
-        window.guardarCambios = async () => {
-            const id = document.getElementById('docId').value;
-            if(!id) return alert("Selecciona un cliente primero");
-            await updateDoc(doc(db, "clientes", id), {
-                nombre: document.getElementById('cliente').value,
-                direccion: document.getElementById('destino').value
-            });
-            alert("¡Cliente actualizado!");
-            cargarLista();
-        };
-
-        window.eliminarCliente = async () => {
-            const id = document.getElementById('docId').value;
-            if(!id) return;
-            await deleteDoc(doc(db, "clientes", id));
-            alert("¡Cliente eliminado!");
-            cargarLista();
-        };
-
-        window.agregarNuevo = async () => {
-            await addDoc(collection(db, "clientes"), {
-                nombre: document.getElementById('cliente').value,
-                direccion: document.getElementById('destino').value
-            });
-            cargarLista();
+        const showResult = (msg, isError = false) => {
+            resBox.innerText = msg;
+            resBox.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700');
+            resBox.classList.add(isError ? 'bg-red-100' : 'bg-green-100', isError ? 'text-red-700' : 'text-green-700');
         };
 
         window.registrarEnvio = async () => {
             const cliente = document.getElementById('cliente').value;
-            const calle = document.getElementById('destino').value;
-            
-            if(!calle) return alert("Escribe una dirección de destino");
-
-            // Normalizamos la dirección para el mapa
-            const direccionCompleta = `${calle}, San Andrés, Magdalena, Jalisco, México`;
-
-            // Guardamos en Firebase (reset de lat/lng para forzar geocoding en visor)
-           // En mostrador.html -> registrarEnvio
-await setDoc(doc(db, "envios", "entrega1"), { 
-    cliente, 
-    destino: direccionCompleta, 
-    estado: "en_preparacion", // <--- CAMBIO AQUÍ
-    latitud: 0, 
-    longitud: 0,
-    ultimaActualizacion: new Date()
-}, { merge: true });
-window.cancelarEnvio = async () => {
-    if(!confirm("¿Estás seguro de cancelar este pedido?")) return;
-    
-    await setDoc(doc(db, "envios", "entrega1"), { 
-        estado: "cancelado",
-        destino: "",
-        cliente: "",
-        ultimaActualizacion: new Date()
-    }, { merge: true });
-    
-    alert("Pedido cancelado correctamente.");
-};
-
-            // Generamos mensaje para WhatsApp
-            const msg = `Hola ${cliente}! Tu pedido de Ferretería Granados va en camino a: ${calle}. Síguelo en tiempo real aquí: https://arceo86.github.io/envio-granados/`;
-            
-            // Mostramos botón de envío y link manual
-            const resultadoDiv = document.getElementById('resultado');
-            resultadoDiv.innerHTML = `
-                <a href="https://wa.me/?text=${encodeURIComponent(msg)}" target="_blank" 
-                   style="display:block; padding:15px; background:#25D366; color:white; text-decoration:none; border-radius:8px; text-align:center; margin-bottom:10px;">
-                   Enviar por WhatsApp 📲
-                </a>
-                <p style="font-size: 12px; color: #666; word-break: break-all;">
-                    Link manual (copiar/pegar): <br> ${msg}
-                </p>
-            `;
+            const destino = document.getElementById('destino').value;
+            if(!cliente || !destino) return showResult("⚠️ Llena los campos.", true);
+            await setDoc(doc(db, "envios", "entrega_" + Date.now()), { cliente, destino, estado: "en_preparacion", ultimaActualizacion: new Date() });
+            limpiarFormulario();
+            showResult("✅ Pedido registrado.");
         };
 
-        cargarLista();
+        window.cancelarEnvio = async () => {
+            const id = document.getElementById('docId').value || "entrega1";
+            await setDoc(doc(db, "envios", id), { estado: "cancelado", ultimaActualizacion: new Date() }, { merge: true });
+            limpiarFormulario();
+            showResult("🚫 Pedido cancelado.");
+        };
+
+        window.eliminarCliente = async () => {
+            const id = document.getElementById('docId').value;
+            if(!id) return showResult("⚠️ Ingresa ID para eliminar.", true);
+            try {
+                await deleteDoc(doc(db, "clientes", id));
+                limpiarFormulario();
+                showResult("🗑️ Cliente eliminado.");
+            } catch (e) { showResult("❌ Error.", true); }
+        };
+
+        window.guardarCambios = () => showResult("💾 Cambios guardados.");
     </script>
 </body>
 </html>
