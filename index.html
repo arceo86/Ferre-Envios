@@ -16,12 +16,11 @@
         .icono-camion { font-size: 24px; margin-right: 12px; background: #f0f0f0; padding: 10px; border-radius: 50%; }
     </style>
     
-    <!-- SOLUCIÓN: Declaramos initMap temporalmente en el scope global para evitar el error si Maps carga antes que el módulo -->
     <script>
+        // Callback global para Google Maps
         window.initMap = function() { window.mapaListo = true; };
     </script>
     
-    <!-- Agregamos el callback para asegurar que Google cargue antes que tu código -->
     <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC6WVTfKxF7XrOIXFXW0Bsg1mC_edDVI-0&libraries=geocoding&callback=initMap"></script>
 </head>
 <body>
@@ -58,35 +57,52 @@
         initializeApp(firebaseConfig);
         const db = getFirestore();
 
-
         let map, markerCamion, markerDestino, geocoder;
-        let esPrimeraUbicacion = true; // BANDERA PARA EL MAPA
+        let esPrimeraUbicacion = true;
 
-        // Función centralizada para arrancar el mapa
+        // Función de animación suave
+        function animarMarcador(marker, nuevaPos, duracion = 3500) {
+            const posInicial = marker.getPosition();
+            if (!posInicial) {
+                marker.setPosition(nuevaPos);
+                return;
+            }
+
+            const lat1 = posInicial.lat();
+            const lng1 = posInicial.lng();
+            const lat2 = nuevaPos.lat;
+            const lng2 = nuevaPos.lng;
+            const startTime = performance.now();
+
+            function frame(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duracion, 1);
+                const currentLat = lat1 + (lat2 - lat1) * progress;
+                const currentLng = lng1 + (lng2 - lng1) * progress;
+                marker.setPosition({ lat: currentLat, lng: currentLng });
+                if (progress < 1) requestAnimationFrame(frame);
+            }
+            requestAnimationFrame(frame);
+        }
+
         const arrancarMapa = () => {
             geocoder = new google.maps.Geocoder();
             map = new google.maps.Map(document.getElementById("mapa"), {
-                // Coordenadas actualizadas a formato decimal
                 center: { lat: 20.922694, lng: -104.091833 },
                 zoom: 15,
                 disableDefaultUI: true
             });
 
-            const posicionInicial = {
-    lat: 20.922694,
-    lng: -104.091833
-};
-
-markerCamion = new google.maps.Marker({
-    position: posicionInicial,
-    map: map,
-    optimized: false,
-    icon: {
-        url: 'https://lh3.googleusercontent.com/d/1BO70O8A3Qf0qPeoFoCqezV3G0sNZMkc4',
-        scaledSize: new google.maps.Size(40, 40),
-        anchor: new google.maps.Point(20, 40)
-    }
-});
+            markerCamion = new google.maps.Marker({
+                position: { lat: 20.922694, lng: -104.091833 },
+                map: map,
+                optimized: false,
+                icon: {
+                    url: 'https://lh3.googleusercontent.com/d/1BO70O8A3Qf0qPeoFoCqezV3G0sNZMkc4',
+                    scaledSize: new google.maps.Size(40, 40),
+                    anchor: new google.maps.Point(20, 40)
+                }
+            });
 
             markerDestino = new google.maps.Marker({
                 map: map,
@@ -96,11 +112,11 @@ markerCamion = new google.maps.Marker({
             iniciarEscuchaFirebase();
         };
 
-        // Lógica de sincronización de carga
+        // Lógica de sincronización
         if (window.mapaListo) {
-            arrancarMapa(); // Si Maps cargó primero, inicializamos directo
+            arrancarMapa();
         } else {
-            window.initMap = arrancarMapa; // Si el módulo cargó primero, Maps la llamará cuando termine
+            window.initMap = arrancarMapa;
         }
 
         function iniciarEscuchaFirebase() {
@@ -111,9 +127,7 @@ markerCamion = new google.maps.Marker({
                 // 1. Actualizar Marcador Camión
                 if (data.latitud && data.longitud) {
                     const pos = { lat: data.latitud, lng: data.longitud };
-                    //markerCamion.setPosition(pos);
-                    animarMarcador(markerCamion, pos, 3500);
-                    // Solo centrar la primera vez
+                    animarMarcador(markerCamion, pos);
                     if (esPrimeraUbicacion) {
                         map.panTo(pos);
                         esPrimeraUbicacion = false;
@@ -158,38 +172,6 @@ markerCamion = new google.maps.Marker({
                 }
             });
         }
-        // Función para deslizar el marcador suavemente
-function animarMarcador(marker, nuevaPos, duracion = 4000) {
-    const posInicial = marker.getPosition();
-    if (!posInicial) {
-        marker.setPosition(nuevaPos);
-        return;
-    }
-
-    const lat1 = posInicial.lat();
-    const lng1 = posInicial.lng();
-    const lat2 = nuevaPos.lat;
-    const lng2 = nuevaPos.lng;
-
-    const startTime = performance.now();
-
-    function frame(currentTime) {
-        const elapsed = currentTime - startTime;
-        const progress = Math.min(elapsed / duracion, 1); // Progreso de 0 a 1
-
-        // Cálculo lineal de posición intermedia (Lerp)
-        const currentLat = lat1 + (lat2 - lat1) * progress;
-        const currentLng = lng1 + (lng2 - lng1) * progress;
-
-        marker.setPosition({ lat: currentLat, lng: currentLng });
-
-        if (progress < 1) {
-            requestAnimationFrame(frame);
-        }
-    }
-
-    requestAnimationFrame(frame);
-}
     </script>
 </body>
 </html>

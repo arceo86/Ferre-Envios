@@ -148,24 +148,24 @@
             cargarLista();
         };
 
-        window.registrarEnvio = async () => {
-            const cliente = document.getElementById('cliente').value;
-            const calle = document.getElementById('selectCalle').value;
-            const num = document.getElementById('numExterior').value;
-            
-            if(!calle) return alert("Selecciona una calle");
-            
-            const direccionCompleta = `${calle} ${num}, Magdalena, Jalisco`;
+       window.registrarEnvio = async () => {
+    const cliente = document.getElementById('cliente').value;
+    const calle = document.getElementById('selectCalle').value;
+    const num = document.getElementById('numExterior').value;
+    
+    if(!calle) return alert("Selecciona una calle");
+    
+    // AQUÍ ESTÁ EL TRUCO: Agregamos el contexto de "San Andrés, Magdalena, Jalisco, México"
+    const direccionCompleta = `${calle} ${num}, San Andrés, Magdalena, Jalisco, México`;
 
-            await setDoc(doc(db, "envios", "entrega1"), { 
-                cliente, 
-                destino: direccionCompleta, 
-                estado: "en_preparacion",
-                latitud: 0, 
-                longitud: 0,
-                ultimaActualizacion: new Date()
-            }, { merge: true });
-
+    await setDoc(doc(db, "envios", "entrega1"), { 
+        cliente, 
+        destino: direccionCompleta, // Guardamos la dirección completa
+        estado: "en_preparacion",
+        latitud: 0, 
+        longitud: 0,
+        ultimaActualizacion: new Date()
+    }, { merge: true });
             const msg = `Hola ${cliente}! Tu pedido de Ferretería Granados va en camino a: ${direccionCompleta}. Síguelo aquí: https://arceo86.github.io/envio-granados/`;
             
             document.getElementById('resultado').innerHTML = `
