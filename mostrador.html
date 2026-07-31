@@ -27,7 +27,11 @@
         
         <input id="docId" type="hidden">
         <input id="cliente" placeholder="👤 Nombre del Cliente">
-        <input id="destino" placeholder="📍 Calle y Número (ej: Juárez 10)">
+        
+        <select id="selectCalle">
+            <option value="">-- Seleccionar Calle --</option>
+        </select>
+        <input id="numExterior" placeholder="🏠 Número Exterior">
         
         <button class="btn-despacho" onclick="registrarEnvio()">🚀 Registrar y Enviar al Mapa</button>
         <button class="btn-accion" onclick="guardarCambios()">💾 Guardar Cambios</button>
@@ -46,7 +50,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { getFirestore, collection, getDocs, addDoc, doc, updateDoc, deleteDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        // Asegúrate de usar tu API Key RESTRICTED
         const firebaseConfig = { 
             apiKey: "AIzaSyBNC-Oh6i2wyZMRiailIoYZ8rzpjN-6wBo", 
             authDomain: "ferreteria-envios.firebaseapp.com",
@@ -57,6 +60,25 @@
         };
         const db = getFirestore(initializeApp(firebaseConfig));
         
+        const calles = [
+            "Calle 5 de Febrero", "Calle Allende", "Calle Colón", "Calle Degollado", 
+            "Calle Donato Guerra", "Calle Javier Mina", "Calle Francisco Villa", 
+            "Calle Hidalgo", "Calle Josefa Ortiz de Domínguez", "Calle López Mateos", 
+            "Calle Melchor Ocampo", "Calle Morelos", "Calle Prisciliano Sánchez", 
+            "Calle Vallarta", "Calle Zaragoza", "Privada Guadalupe Victoria", 
+            "Privada Guerrero", "Privada Herrera y Cairo", "Privada Lerdo de Tejada", 
+            "Privada López Cotilla", "Privada M. Miramontes", "Privada Manuel M. Diéguez", 
+            "Privada Mariano Jiménez"
+        ];
+
+        // Llenar el select de calles
+        const selCalle = document.getElementById('selectCalle');
+        calles.forEach(c => {
+            let opt = document.createElement('option');
+            opt.value = c; opt.innerHTML = c;
+            selCalle.appendChild(opt);
+        });
+
         let listaClientes = [];
 
         async function cargarLista() {
@@ -81,16 +103,28 @@
                 const c = listaClientes[idx];
                 document.getElementById('docId').value = c.id;
                 document.getElementById('cliente').value = c.nombre;
-                document.getElementById('destino').value = c.direccion;
+                
+                // Intento separar calle y número
+                const match = c.direccion.match(/(.*)\s+(\d+)$/);
+                if (match) {
+                    document.getElementById('selectCalle').value = match[1];
+                    document.getElementById('numExterior').value = match[2];
+                } else {
+                    document.getElementById('selectCalle').value = "";
+                    document.getElementById('numExterior').value = c.direccion;
+                }
             }
         };
 
         window.guardarCambios = async () => {
             const id = document.getElementById('docId').value;
+            const calle = document.getElementById('selectCalle').value;
+            const num = document.getElementById('numExterior').value;
             if(!id) return alert("Selecciona un cliente primero");
+            
             await updateDoc(doc(db, "clientes", id), {
                 nombre: document.getElementById('cliente').value,
-                direccion: document.getElementById('destino').value
+                direccion: `${calle} ${num}`
             });
             alert("¡Cliente actualizado!");
             cargarLista();
@@ -105,59 +139,47 @@
         };
 
         window.agregarNuevo = async () => {
+            const calle = document.getElementById('selectCalle').value;
+            const num = document.getElementById('numExterior').value;
             await addDoc(collection(db, "clientes"), {
                 nombre: document.getElementById('cliente').value,
-                direccion: document.getElementById('destino').value
+                direccion: `${calle} ${num}`
             });
             cargarLista();
         };
 
         window.registrarEnvio = async () => {
             const cliente = document.getElementById('cliente').value;
-            const calle = document.getElementById('destino').value;
+            const calle = document.getElementById('selectCalle').value;
+            const num = document.getElementById('numExterior').value;
             
-            if(!calle) return alert("Escribe una dirección de destino");
-
-            // Normalizamos la dirección para el mapa
-            const direccionCompleta = `${calle}, San Andrés, Magdalena, Jalisco, México`;
-
-            // Guardamos en Firebase (reset de lat/lng para forzar geocoding en visor)
-           // En mostrador.html -> registrarEnvio
-await setDoc(doc(db, "envios", "entrega1"), { 
-    cliente, 
-    destino: direccionCompleta, 
-    estado: "en_preparacion", // <--- CAMBIO AQUÍ
-    latitud: 0, 
-    longitud: 0,
-    ultimaActualizacion: new Date()
-}, { merge: true });
-window.cancelarEnvio = async () => {
-    if(!confirm("¿Estás seguro de cancelar este pedido?")) return;
-    
-    await setDoc(doc(db, "envios", "entrega1"), { 
-        estado: "cancelado",
-        destino: "",
-        cliente: "",
-        ultimaActualizacion: new Date()
-    }, { merge: true });
-    
-    alert("Pedido cancelado correctamente.");
-};
-
-            // Generamos mensaje para WhatsApp
-            const msg = `Hola ${cliente}! Tu pedido de Ferretería Granados va en camino a: ${calle}. Síguelo en tiempo real aquí: https://arceo86.github.io/envio-granados/`;
+            if(!calle) return alert("Selecciona una calle");
             
-            // Mostramos botón de envío y link manual
-            const resultadoDiv = document.getElementById('resultado');
-            resultadoDiv.innerHTML = `
+            const direccionCompleta = `${calle} ${num}, Magdalena, Jalisco`;
+
+            await setDoc(doc(db, "envios", "entrega1"), { 
+                cliente, 
+                destino: direccionCompleta, 
+                estado: "en_preparacion",
+                latitud: 0, 
+                longitud: 0,
+                ultimaActualizacion: new Date()
+            }, { merge: true });
+
+            const msg = `Hola ${cliente}! Tu pedido de Ferretería Granados va en camino a: ${direccionCompleta}. Síguelo aquí: https://arceo86.github.io/envio-granados/`;
+            
+            document.getElementById('resultado').innerHTML = `
                 <a href="https://wa.me/?text=${encodeURIComponent(msg)}" target="_blank" 
-                   style="display:block; padding:15px; background:#25D366; color:white; text-decoration:none; border-radius:8px; text-align:center; margin-bottom:10px;">
-                   Enviar por WhatsApp 📲
+                   style="display:block; padding:15px; background:#25D366; color:white; text-decoration:none; border-radius:8px; text-align:center;">
+                    Enviar por WhatsApp 📲
                 </a>
-                <p style="font-size: 12px; color: #666; word-break: break-all;">
-                    Link manual (copiar/pegar): <br> ${msg}
-                </p>
             `;
+        };
+
+        window.cancelarEnvio = async () => {
+            if(!confirm("¿Cancelar pedido?")) return;
+            await setDoc(doc(db, "envios", "entrega1"), { estado: "cancelado", destino: "", cliente: "", ultimaActualizacion: new Date() }, { merge: true });
+            alert("Cancelado.");
         };
 
         cargarLista();

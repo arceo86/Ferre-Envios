@@ -111,8 +111,8 @@ markerCamion = new google.maps.Marker({
                 // 1. Actualizar Marcador Camión
                 if (data.latitud && data.longitud) {
                     const pos = { lat: data.latitud, lng: data.longitud };
-                    markerCamion.setPosition(pos);
-                    
+                    //markerCamion.setPosition(pos);
+                    animarMarcador(markerCamion, pos, 3500);
                     // Solo centrar la primera vez
                     if (esPrimeraUbicacion) {
                         map.panTo(pos);
@@ -158,6 +158,38 @@ markerCamion = new google.maps.Marker({
                 }
             });
         }
+        // Función para deslizar el marcador suavemente
+function animarMarcador(marker, nuevaPos, duracion = 4000) {
+    const posInicial = marker.getPosition();
+    if (!posInicial) {
+        marker.setPosition(nuevaPos);
+        return;
+    }
+
+    const lat1 = posInicial.lat();
+    const lng1 = posInicial.lng();
+    const lat2 = nuevaPos.lat;
+    const lng2 = nuevaPos.lng;
+
+    const startTime = performance.now();
+
+    function frame(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duracion, 1); // Progreso de 0 a 1
+
+        // Cálculo lineal de posición intermedia (Lerp)
+        const currentLat = lat1 + (lat2 - lat1) * progress;
+        const currentLng = lng1 + (lng2 - lng1) * progress;
+
+        marker.setPosition({ lat: currentLat, lng: currentLng });
+
+        if (progress < 1) {
+            requestAnimationFrame(frame);
+        }
+    }
+
+    requestAnimationFrame(frame);
+}
     </script>
 </body>
 </html>
