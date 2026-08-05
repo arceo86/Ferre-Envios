@@ -652,6 +652,179 @@
       }
     }
 
+
+    /* ===== Ajustes responsivos v7 ===== */
+    html,
+    body {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    .app-shell,
+    .topbar,
+    .layout,
+    .panel,
+    .modal-card {
+      min-width: 0;
+    }
+
+    .acciones-topbar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .acciones-topbar button {
+      min-height: 42px;
+      white-space: normal;
+    }
+
+    .modal-fondo {
+      padding: 12px;
+      overflow-y: auto;
+      align-items: flex-start;
+    }
+
+    .modal-card.modal-ancho {
+      width: min(100%, 1050px);
+      max-width: 100%;
+      max-height: calc(100dvh - 24px);
+      margin: auto;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    .pedido-activo-card,
+    .pedido-activo-encabezado,
+    .pedido-activo-datos,
+    .pedido-activo-acciones {
+      min-width: 0;
+    }
+
+    .pedido-activo-card {
+      overflow-wrap: anywhere;
+    }
+
+    .pedido-activo-acciones {
+      grid-template-columns: minmax(190px, 1fr) repeat(3, minmax(105px, auto));
+    }
+
+    .pedido-activo-acciones button,
+    .pedido-activo-acciones select {
+      width: 100%;
+      min-width: 0;
+    }
+
+    @media (max-width: 1100px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .panel-mapa,
+      #map {
+        min-height: clamp(380px, 58vh, 620px);
+      }
+    }
+
+    @media (max-width: 760px) {
+      .app-shell {
+        padding: 8px;
+      }
+
+      .topbar {
+        padding: 12px;
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .marca {
+        width: 100%;
+      }
+
+      .acciones-topbar {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .acciones-topbar button {
+        width: 100%;
+        padding: 10px 8px;
+        font-size: 13px;
+      }
+
+      .panel-formulario {
+        padding: 16px;
+      }
+
+      .panel-mapa,
+      #map {
+        min-height: 430px;
+      }
+
+      .modal-fondo {
+        padding: 6px;
+      }
+
+      .modal-card,
+      .modal-card.modal-ancho {
+        width: 100%;
+        max-height: calc(100dvh - 12px);
+        border-radius: 14px;
+        padding: 16px;
+      }
+
+      .modal-header {
+        align-items: flex-start;
+      }
+
+      .historial-controles {
+        grid-template-columns: 1fr;
+      }
+
+      .pedido-activo-encabezado {
+        flex-direction: column;
+      }
+
+      .pedido-activo-datos {
+        grid-template-columns: 1fr;
+      }
+
+      .pedido-activo-acciones {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .pedido-activo-acciones select {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (max-width: 460px) {
+      .acciones-topbar,
+      .pedido-activo-acciones {
+        grid-template-columns: 1fr;
+      }
+
+      .pedido-activo-acciones select {
+        grid-column: auto;
+      }
+
+      .marca h1 {
+        font-size: 17px;
+      }
+
+      .contador-activos {
+        min-width: 22px;
+        height: 22px;
+      }
+
+      .historial-resumen {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
   </style>
 </head>
 
@@ -997,7 +1170,7 @@
         radioMaximoMetros: 5000
       },
 
-      enlaceSeguimiento: "https://arceo86.github.io/envio-granados/",
+      enlaceSeguimiento: "https://arceo86.github.io/Ferre-Envios/rastreo.html",
 
       pinVehiculoUrl:
         "https://lh3.googleusercontent.com/d/1BO70O8A3Qf0qPeoFoCqezV3G0sNZMkc4"
@@ -1878,88 +2051,184 @@
       );
     }
 
-    async function reasignarPedidoActivo(pedidoId) {
+    async function reasignarPedidoActivo(pedidoId, boton = null) {
       const pedido = pedidosActivos.find(
         (item) => item.id === pedidoId
       );
 
-      if (!pedido) return;
+      if (!pedido) {
+        mostrarEstado(
+          $("estadoPedidosActivos"),
+          "El pedido ya no está disponible en la lista.",
+          "error"
+        );
+        return;
+      }
 
       if (pedido.estado === "en_camino") {
-        alert(
-          "No puedes reasignar un pedido que ya está en camino. Finaliza o cancela primero el viaje."
+        mostrarEstado(
+          $("estadoPedidosActivos"),
+          "No se puede reasignar porque el viaje ya está en camino.",
+          "error"
         );
-        renderizarPedidosActivos();
         return;
       }
 
       const select = document.querySelector(
-        `[data-reasignar-pedido="${pedidoId}"]`
+        `[data-reasignar-pedido="${CSS.escape(pedidoId)}"]`
       );
 
-      const nuevoUid = select?.value || "";
+      const nuevoUid = select?.value?.trim() || "";
 
       if (!nuevoUid) {
-        alert("Selecciona un repartidor.");
+        mostrarEstado(
+          $("estadoPedidosActivos"),
+          "Selecciona primero al nuevo repartidor.",
+          "error"
+        );
+        select?.focus();
+        return;
+      }
+
+      if (nuevoUid === pedido.repartidorUID) {
+        mostrarEstado(
+          $("estadoPedidosActivos"),
+          "Seleccionaste al mismo repartidor. Elige otro para realizar la reasignación.",
+          "error"
+        );
         return;
       }
 
       if (repartidorEstaOcupado(nuevoUid, pedidoId)) {
-        alert(
-          "Ese repartidor ya tiene una entrega activa. Selecciona otro."
+        mostrarEstado(
+          $("estadoPedidosActivos"),
+          "Ese repartidor ya tiene una entrega activa.",
+          "error"
         );
         renderizarPedidosActivos();
         return;
       }
 
-      const repartidor = listaRepartidores.find(
+      const repartidorNuevo = listaRepartidores.find(
         (item) => item.id === nuevoUid
       );
 
-      if (!repartidor) {
-        alert("No se encontró el perfil del repartidor.");
+      if (!repartidorNuevo) {
+        mostrarEstado(
+          $("estadoPedidosActivos"),
+          "No se encontró el perfil del nuevo repartidor.",
+          "error"
+        );
         return;
       }
 
+      const nombreNuevo =
+        repartidorNuevo.nombre ||
+        repartidorNuevo.correo ||
+        "Repartidor";
+
+      const confirmado = confirm(
+        `¿Reasignar el pedido de ${pedido.cliente || "este cliente"} a ${nombreNuevo}?`
+      );
+
+      if (!confirmado) return;
+
+      const textoAnterior = boton?.textContent;
+
       try {
-        await updateDoc(
+        if (boton) {
+          boton.disabled = true;
+          boton.textContent = "Guardando...";
+        }
+
+        /*
+         * El pedido privado es la fuente que utiliza
+         * la app del repartidor para recibir la asignación.
+         */
+        await setDoc(
           doc(db, "pedidos", pedidoId),
           {
             repartidorUID: nuevoUid,
-            repartidorNombre:
-              repartidor.nombre ||
-              repartidor.correo ||
-              "Repartidor",
-            ultimaActualizacion: serverTimestamp()
-          }
-        );
-
-        await setDoc(
-          doc(db, "rastreoPublico", pedidoId),
-          {
-            repartidorUID: nuevoUid,
-            repartidorNombre:
-              repartidor.nombre ||
-              repartidor.correo ||
-              "Repartidor",
+            repartidorNombre: nombreNuevo,
+            reasignadoPorUID: auth.currentUser?.uid || null,
+            reasignadoPorCorreo: auth.currentUser?.email || null,
+            fechaReasignacion: serverTimestamp(),
             ultimaActualizacion: serverTimestamp()
           },
           { merge: true }
         );
 
-        mostrarEstado(
-          $("estadoPedidosActivos"),
-          "Pedido reasignado correctamente.",
-          "ok"
+        /*
+         * El visor público debe mostrar el mismo repartidor.
+         */
+        await setDoc(
+          doc(db, "rastreoPublico", pedidoId),
+          {
+            repartidorUID: nuevoUid,
+            repartidorNombre: nombreNuevo,
+            ultimaActualizacion: serverTimestamp()
+          },
+          { merge: true }
         );
-      } catch (error) {
-        console.error("Error reasignando pedido:", error);
+
+        /*
+         * Si por algún dato antiguo el repartidor anterior
+         * tenía este pedido como activo, se libera.
+         */
+        if (
+          pedido.repartidorUID &&
+          pedido.repartidorUID !== nuevoUid
+        ) {
+          const anterior = listaRepartidores.find(
+            (item) => item.id === pedido.repartidorUID
+          );
+
+          if (anterior?.pedidoActivoId === pedidoId) {
+            await setDoc(
+              doc(db, "repartidores", pedido.repartidorUID),
+              {
+                pedidoActivoId: null,
+                estado: "disponible",
+                gpsActivo: false,
+                ultimaActualizacion: serverTimestamp()
+              },
+              { merge: true }
+            );
+          }
+        }
 
         mostrarEstado(
           $("estadoPedidosActivos"),
-          "No fue posible reasignar el pedido.",
+          `Pedido reasignado correctamente a ${nombreNuevo}.`,
+          "ok"
+        );
+
+        /*
+         * Actualización inmediata, sin esperar al listener.
+         */
+        pedido.repartidorUID = nuevoUid;
+        pedido.repartidorNombre = nombreNuevo;
+        renderizarPedidosActivos();
+      } catch (error) {
+        console.error("Error reasignando pedido:", error);
+
+        let mensaje = "No fue posible reasignar el pedido.";
+
+        if (error?.code === "permission-denied") {
+          mensaje =
+            "Firestore bloqueó la reasignación. Revisa que el despachador tenga permiso para actualizar pedidos y rastreoPublico.";
+        }
+
+        mostrarEstado(
+          $("estadoPedidosActivos"),
+          mensaje,
           "error"
         );
+      } finally {
+        if (boton) {
+          boton.disabled = false;
+          boton.textContent = textoAnterior || "Reasignar";
+        }
       }
     }
 
@@ -2149,8 +2418,9 @@
                   data-accion="reasignar"
                   data-pedido-id="${escaparTexto(pedido.id)}"
                   ${puedeReasignar ? "" : "disabled"}
+                  title="Selecciona otro repartidor y pulsa aquí"
                 >
-                  Reasignar
+                  Reasignar repartidor
                 </button>
 
                 <button
@@ -2603,7 +2873,7 @@
       const accion = boton.dataset.accion;
 
       if (accion === "reasignar") {
-        reasignarPedidoActivo(pedidoId);
+        reasignarPedidoActivo(pedidoId, boton);
       } else if (accion === "rastrear") {
         abrirRastreoPedido(pedidoId);
       } else if (accion === "cancelar") {
