@@ -562,6 +562,96 @@
       }
     }
 
+
+    .pedidos-activos-lista {
+      display: grid;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .pedido-activo-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 16px;
+      padding: 15px;
+      background: #ffffff;
+      box-shadow: 0 3px 12px rgba(15, 23, 42, .06);
+    }
+
+    .pedido-activo-encabezado {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .pedido-activo-encabezado h3 {
+      margin: 0 0 4px;
+      font-size: 17px;
+      color: #111827;
+    }
+
+    .pedido-activo-encabezado p,
+    .pedido-activo-datos p {
+      margin: 3px 0;
+      color: #667085;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .pedido-activo-datos {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 18px;
+      margin: 12px 0;
+    }
+
+    .pedido-activo-acciones {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) repeat(3, auto);
+      gap: 9px;
+      align-items: center;
+      margin-top: 13px;
+    }
+
+    .pedido-activo-acciones select {
+      margin: 0;
+    }
+
+    .contador-activos {
+      display: inline-flex;
+      min-width: 25px;
+      height: 25px;
+      align-items: center;
+      justify-content: center;
+      margin-left: 5px;
+      padding: 0 7px;
+      border-radius: 999px;
+      background: #ffffff;
+      color: #2563eb;
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .texto-advertencia {
+      color: #b45309 !important;
+      font-weight: 700;
+    }
+
+    @media (max-width: 820px) {
+      .pedido-activo-datos {
+        grid-template-columns: 1fr;
+      }
+
+      .pedido-activo-acciones {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .pedido-activo-acciones select {
+        grid-column: 1 / -1;
+      }
+    }
+
   </style>
 </head>
 
@@ -596,6 +686,7 @@
       </div>
 
       <div class="acciones-topbar">
+        <button id="btnPedidosActivos" class="btn-azul">🚚 Pedidos activos <span id="contadorPedidosActivos" class="contador-activos">0</span></button>
         <button id="btnHistorialDia" class="btn-azul">📋 Historial del día</button>
         <button id="btnNuevoRepartidor" class="btn-verde">➕ Crear repartidor</button>
         <button id="btnLogout" class="btn-rojo">Cerrar sesión</button>
@@ -740,6 +831,44 @@
   </section>
 
 
+
+  <section id="modalPedidosActivos" class="modal-fondo oculto" aria-hidden="true">
+    <div class="modal-card modal-ancho" role="dialog" aria-modal="true" aria-labelledby="tituloModalPedidosActivos">
+      <div class="modal-header">
+        <div>
+          <h2 id="tituloModalPedidosActivos">Pedidos activos</h2>
+          <p>Asignados, en preparación y en camino. Se actualizan automáticamente.</p>
+        </div>
+        <button id="btnCerrarModalPedidosActivos" class="btn-cerrar-modal" type="button" aria-label="Cerrar">×</button>
+      </div>
+
+      <div class="historial-controles">
+        <div>
+          <label for="buscarPedidoActivo">Buscar</label>
+          <input id="buscarPedidoActivo" placeholder="Cliente, dirección, repartidor o ID" />
+        </div>
+
+        <div>
+          <label for="filtroEstadoActivo">Estado</label>
+          <select id="filtroEstadoActivo">
+            <option value="">Todos</option>
+            <option value="asignado">Asignado</option>
+            <option value="en_preparacion">En preparación</option>
+            <option value="en_camino">En camino</option>
+          </select>
+        </div>
+
+        <button id="btnActualizarPedidosActivos" class="btn-azul" type="button">Actualizar vista</button>
+      </div>
+
+      <div id="estadoPedidosActivos" class="estado-box oculto"></div>
+
+      <div id="listaPedidosActivos" class="pedidos-activos-lista">
+        <div class="historial-vacio">Cargando pedidos activos...</div>
+      </div>
+    </div>
+  </section>
+
   <section id="modalHistorial" class="modal-fondo oculto" aria-hidden="true">
     <div class="modal-card modal-ancho" role="dialog" aria-modal="true" aria-labelledby="tituloModalHistorial">
       <div class="modal-header">
@@ -822,6 +951,7 @@
       doc,
       getDoc,
       getDocs,
+      onSnapshot,
       orderBy,
       query,
       serverTimestamp,
@@ -909,6 +1039,8 @@
     let listaRepartidores = [];
     let destinoActual = null;
     let pedidoActualId = localStorage.getItem("pedidoActualId") || "";
+    let pedidosActivos = [];
+    let cancelarEscuchaPedidosActivos = null;
 
     const $ = (id) => document.getElementById(id);
 
@@ -1635,6 +1767,452 @@
     }
 
 
+
+    const ESTADOS_PEDIDO_ACTIVO = [
+      "asignado",
+      "en_preparacion",
+      "en_camino"
+    ];
+
+    function abrirModalPedidosActivos() {
+      $("modalPedidosActivos").classList.remove("oculto");
+      $("modalPedidosActivos").setAttribute("aria-hidden", "false");
+      renderizarPedidosActivos();
+    }
+
+    function cerrarModalPedidosActivos() {
+      $("modalPedidosActivos").classList.add("oculto");
+      $("modalPedidosActivos").setAttribute("aria-hidden", "true");
+    }
+
+    function obtenerFechaPedido(pedido) {
+      return (
+        obtenerFechaDesdeTimestamp(pedido.fechaCreacion)?.getTime() ||
+        0
+      );
+    }
+
+    function repartidorEstaOcupado(uid, pedidoExcluidoId = "") {
+      if (!uid) return false;
+
+      const perfil = listaRepartidores.find(
+        (repartidor) => repartidor.id === uid
+      );
+
+      if (
+        perfil?.pedidoActivoId &&
+        perfil.pedidoActivoId !== pedidoExcluidoId
+      ) {
+        return true;
+      }
+
+      if (
+        String(perfil?.estado || "").toLowerCase() === "entregando"
+      ) {
+        const mismoPedido =
+          perfil?.pedidoActivoId === pedidoExcluidoId;
+
+        if (!mismoPedido) return true;
+      }
+
+      return pedidosActivos.some(
+        (pedido) =>
+          pedido.id !== pedidoExcluidoId &&
+          pedido.repartidorUID === uid &&
+          pedido.estado === "en_camino"
+      );
+    }
+
+    function opcionesRepartidoresParaPedido(pedido) {
+      const opciones = [
+        '<option value="">-- Seleccionar repartidor --</option>'
+      ];
+
+      listaRepartidores.forEach((repartidor) => {
+        const ocupado = repartidorEstaOcupado(
+          repartidor.id,
+          pedido.id
+        );
+
+        const seleccionado =
+          repartidor.id === pedido.repartidorUID
+            ? "selected"
+            : "";
+
+        const deshabilitado =
+          ocupado && !seleccionado
+            ? "disabled"
+            : "";
+
+        const etiquetaOcupado =
+          ocupado && !seleccionado
+            ? " · ocupado"
+            : "";
+
+        opciones.push(`
+          <option
+            value="${escaparTexto(repartidor.id)}"
+            ${seleccionado}
+            ${deshabilitado}
+          >
+            ${escaparTexto(
+              repartidor.nombre ||
+              repartidor.correo ||
+              "Repartidor"
+            )}${etiquetaOcupado}
+          </option>
+        `);
+      });
+
+      return opciones.join("");
+    }
+
+    function abrirRastreoPedido(pedidoId) {
+      const base = CONFIG.enlaceSeguimiento.replace(/[?&]+$/, "");
+      const separador = base.includes("?") ? "&" : "?";
+
+      window.open(
+        `${base}${separador}pedido=${encodeURIComponent(pedidoId)}`,
+        "_blank",
+        "noopener"
+      );
+    }
+
+    async function reasignarPedidoActivo(pedidoId) {
+      const pedido = pedidosActivos.find(
+        (item) => item.id === pedidoId
+      );
+
+      if (!pedido) return;
+
+      if (pedido.estado === "en_camino") {
+        alert(
+          "No puedes reasignar un pedido que ya está en camino. Finaliza o cancela primero el viaje."
+        );
+        renderizarPedidosActivos();
+        return;
+      }
+
+      const select = document.querySelector(
+        `[data-reasignar-pedido="${pedidoId}"]`
+      );
+
+      const nuevoUid = select?.value || "";
+
+      if (!nuevoUid) {
+        alert("Selecciona un repartidor.");
+        return;
+      }
+
+      if (repartidorEstaOcupado(nuevoUid, pedidoId)) {
+        alert(
+          "Ese repartidor ya tiene una entrega activa. Selecciona otro."
+        );
+        renderizarPedidosActivos();
+        return;
+      }
+
+      const repartidor = listaRepartidores.find(
+        (item) => item.id === nuevoUid
+      );
+
+      if (!repartidor) {
+        alert("No se encontró el perfil del repartidor.");
+        return;
+      }
+
+      try {
+        await updateDoc(
+          doc(db, "pedidos", pedidoId),
+          {
+            repartidorUID: nuevoUid,
+            repartidorNombre:
+              repartidor.nombre ||
+              repartidor.correo ||
+              "Repartidor",
+            ultimaActualizacion: serverTimestamp()
+          }
+        );
+
+        await setDoc(
+          doc(db, "rastreoPublico", pedidoId),
+          {
+            repartidorUID: nuevoUid,
+            repartidorNombre:
+              repartidor.nombre ||
+              repartidor.correo ||
+              "Repartidor",
+            ultimaActualizacion: serverTimestamp()
+          },
+          { merge: true }
+        );
+
+        mostrarEstado(
+          $("estadoPedidosActivos"),
+          "Pedido reasignado correctamente.",
+          "ok"
+        );
+      } catch (error) {
+        console.error("Error reasignando pedido:", error);
+
+        mostrarEstado(
+          $("estadoPedidosActivos"),
+          "No fue posible reasignar el pedido.",
+          "error"
+        );
+      }
+    }
+
+    async function cancelarPedidoActivo(pedidoId) {
+      const pedido = pedidosActivos.find(
+        (item) => item.id === pedidoId
+      );
+
+      if (!pedido) return;
+
+      const confirmado = confirm(
+        `¿Cancelar el pedido de ${pedido.cliente || "este cliente"}?`
+      );
+
+      if (!confirmado) return;
+
+      try {
+        await updateDoc(
+          doc(db, "pedidos", pedidoId),
+          {
+            estado: "cancelado",
+            fechaCancelacion: serverTimestamp(),
+            ultimaActualizacion: serverTimestamp()
+          }
+        );
+
+        await setDoc(
+          doc(db, "rastreoPublico", pedidoId),
+          {
+            estado: "cancelado",
+            ultimaActualizacion: serverTimestamp()
+          },
+          { merge: true }
+        );
+
+        if (pedido.repartidorUID) {
+          const perfil = listaRepartidores.find(
+            (item) => item.id === pedido.repartidorUID
+          );
+
+          if (perfil?.pedidoActivoId === pedidoId) {
+            await setDoc(
+              doc(db, "repartidores", pedido.repartidorUID),
+              {
+                estado: "disponible",
+                pedidoActivoId: null,
+                gpsActivo: false,
+                ultimaActualizacion: serverTimestamp()
+              },
+              { merge: true }
+            );
+          }
+        }
+
+        if (pedidoActualId === pedidoId) {
+          pedidoActualId = "";
+          localStorage.removeItem("pedidoActualId");
+          $("btnCancelarPedido").disabled = true;
+          $("pedidoActual").textContent =
+            "No hay un pedido creado en esta sesión.";
+        }
+
+        mostrarEstado(
+          $("estadoPedidosActivos"),
+          "Pedido cancelado correctamente.",
+          "ok"
+        );
+      } catch (error) {
+        console.error("Error cancelando pedido:", error);
+
+        mostrarEstado(
+          $("estadoPedidosActivos"),
+          "No fue posible cancelar el pedido.",
+          "error"
+        );
+      }
+    }
+
+    function renderizarPedidosActivos() {
+      const busqueda = $("buscarPedidoActivo")?.value
+        .trim()
+        .toLowerCase() || "";
+
+      const estadoFiltro =
+        $("filtroEstadoActivo")?.value || "";
+
+      const lista = pedidosActivos
+        .filter((pedido) => {
+          const coincideEstado =
+            !estadoFiltro || pedido.estado === estadoFiltro;
+
+          const texto = [
+            pedido.id,
+            pedido.cliente,
+            pedido.direccion,
+            pedido.direccionCorta,
+            pedido.repartidorNombre
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+
+          return (
+            coincideEstado &&
+            (!busqueda || texto.includes(busqueda))
+          );
+        })
+        .sort((a, b) => obtenerFechaPedido(a) - obtenerFechaPedido(b));
+
+      $("contadorPedidosActivos").textContent =
+        pedidosActivos.length;
+
+      if (!lista.length) {
+        $("listaPedidosActivos").innerHTML = `
+          <div class="historial-vacio">
+            No hay pedidos activos que coincidan con los filtros.
+          </div>
+        `;
+        return;
+      }
+
+      $("listaPedidosActivos").innerHTML = lista
+        .map((pedido) => {
+          const puedeReasignar =
+            pedido.estado !== "en_camino";
+
+          return `
+            <article class="pedido-activo-card">
+              <div class="pedido-activo-encabezado">
+                <div>
+                  <h3>${escaparTexto(pedido.cliente || "Cliente")}</h3>
+                  <p>${escaparTexto(
+                    pedido.direccionCorta ||
+                    pedido.direccion ||
+                    "Dirección pendiente"
+                  )}</p>
+                </div>
+
+                <span class="badge-estado ${claseEstado(pedido.estado)}">
+                  ${escaparTexto(textoEstado(pedido.estado))}
+                </span>
+              </div>
+
+              <div class="pedido-activo-datos">
+                <p>
+                  <strong>Repartidor:</strong>
+                  ${escaparTexto(
+                    pedido.repartidorNombre || "Sin asignar"
+                  )}
+                </p>
+
+                <p>
+                  <strong>Creado:</strong>
+                  ${formatearHora(pedido.fechaCreacion)}
+                </p>
+
+                <p>
+                  <strong>Distancia:</strong>
+                  ${formatearDistancia(
+                    Number(pedido.distanciaEstimadaMetros)
+                  )}
+                </p>
+
+                <p title="${escaparTexto(pedido.id)}">
+                  <strong>ID:</strong>
+                  ${escaparTexto(pedido.id)}
+                </p>
+              </div>
+
+              ${
+                !puedeReasignar
+                  ? '<p class="texto-advertencia">El viaje ya inició; la reasignación está bloqueada.</p>'
+                  : ""
+              }
+
+              <div class="pedido-activo-acciones">
+                <select
+                  data-reasignar-pedido="${escaparTexto(pedido.id)}"
+                  ${puedeReasignar ? "" : "disabled"}
+                >
+                  ${opcionesRepartidoresParaPedido(pedido)}
+                </select>
+
+                <button
+                  class="btn-secundario"
+                  type="button"
+                  data-accion="reasignar"
+                  data-pedido-id="${escaparTexto(pedido.id)}"
+                  ${puedeReasignar ? "" : "disabled"}
+                >
+                  Reasignar
+                </button>
+
+                <button
+                  class="btn-azul"
+                  type="button"
+                  data-accion="rastrear"
+                  data-pedido-id="${escaparTexto(pedido.id)}"
+                >
+                  Ver rastreo
+                </button>
+
+                <button
+                  class="btn-rojo"
+                  type="button"
+                  data-accion="cancelar"
+                  data-pedido-id="${escaparTexto(pedido.id)}"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </article>
+          `;
+        })
+        .join("");
+    }
+
+    function iniciarEscuchaPedidosActivos() {
+      if (cancelarEscuchaPedidosActivos) {
+        cancelarEscuchaPedidosActivos();
+      }
+
+      cancelarEscuchaPedidosActivos = onSnapshot(
+        collection(db, "pedidos"),
+        (snapshot) => {
+          pedidosActivos = snapshot.docs
+            .map((documento) => ({
+              id: documento.id,
+              ...documento.data()
+            }))
+            .filter((pedido) =>
+              ESTADOS_PEDIDO_ACTIVO.includes(
+                String(pedido.estado || "").trim()
+              )
+            );
+
+          renderizarPedidosActivos();
+        },
+        (error) => {
+          console.error(
+            "Error escuchando pedidos activos:",
+            error
+          );
+
+          mostrarEstado(
+            $("estadoPedidosActivos"),
+            "No fue posible cargar los pedidos activos.",
+            "error"
+          );
+        }
+      );
+    }
+
     let historialPedidosDia = [];
 
     function abrirModalHistorial() {
@@ -1951,6 +2529,8 @@
           cargarRepartidores()
         ]);
 
+        iniciarEscuchaPedidosActivos();
+
         if (pedidoActualId) {
           $("pedidoActual").innerHTML = `
             <strong>Pedido guardado:</strong> ${pedidoActualId}<br>
@@ -2003,6 +2583,34 @@
       }
     });
 
+    $("btnPedidosActivos").addEventListener("click", abrirModalPedidosActivos);
+    $("btnCerrarModalPedidosActivos").addEventListener("click", cerrarModalPedidosActivos);
+    $("btnActualizarPedidosActivos").addEventListener("click", renderizarPedidosActivos);
+    $("buscarPedidoActivo").addEventListener("input", renderizarPedidosActivos);
+    $("filtroEstadoActivo").addEventListener("change", renderizarPedidosActivos);
+
+    $("modalPedidosActivos").addEventListener("click", (evento) => {
+      if (evento.target === $("modalPedidosActivos")) {
+        cerrarModalPedidosActivos();
+      }
+    });
+
+    $("listaPedidosActivos").addEventListener("click", (evento) => {
+      const boton = evento.target.closest("[data-accion]");
+      if (!boton) return;
+
+      const pedidoId = boton.dataset.pedidoId;
+      const accion = boton.dataset.accion;
+
+      if (accion === "reasignar") {
+        reasignarPedidoActivo(pedidoId);
+      } else if (accion === "rastrear") {
+        abrirRastreoPedido(pedidoId);
+      } else if (accion === "cancelar") {
+        cancelarPedidoActivo(pedidoId);
+      }
+    });
+
     $("btnHistorialDia").addEventListener("click", abrirModalHistorial);
     $("btnCerrarModalHistorial").addEventListener("click", cerrarModalHistorial);
     $("btnActualizarHistorial").addEventListener("click", cargarHistorialDelDia);
@@ -2017,13 +2625,29 @@
     document.addEventListener("keydown", (evento) => {
       if (
         evento.key === "Escape" &&
+        !$("modalPedidosActivos").classList.contains("oculto")
+      ) {
+        cerrarModalPedidosActivos();
+      }
+    });
+
+    document.addEventListener("keydown", (evento) => {
+      if (
+        evento.key === "Escape" &&
         !$("modalHistorial").classList.contains("oculto")
       ) {
         cerrarModalHistorial();
       }
     });
 
-    $("btnLogout").addEventListener("click", () => signOut(auth));
+    $("btnLogout").addEventListener("click", async () => {
+      if (cancelarEscuchaPedidosActivos) {
+        cancelarEscuchaPedidosActivos();
+        cancelarEscuchaPedidosActivos = null;
+      }
+
+      await signOut(auth);
+    });
     $("selectCliente").addEventListener("change", cargarClienteSeleccionado);
     $("btnVistaPrevia").addEventListener("click", ubicarDestino);
     $("btnLimpiar").addEventListener("click", limpiarFormularioCliente);
