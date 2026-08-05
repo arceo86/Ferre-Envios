@@ -1,177 +1,2046 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Rastreo - Ferretería Granados</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; height: 100vh; background-color: #f5f5f5; }
-        #mapa { flex: 1; width: 100%; z-index: 1; }
-        .panel-info { background: white; padding: 24px; border-top-left-radius: 24px; border-top-right-radius: 24px; box-shadow: 0 -4px 15px rgba(0,0,0,0.1); z-index: 10; margin-top: -20px; }
-        .etiqueta-estado { display: inline-block; background: #d32f2f; color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 12px; }
-        .titulo { margin: 0 0 8px 0; font-size: 20px; color: #1a1a1a; }
-        .subtitulo { margin: 0; color: #666; font-size: 14px; }
-        .detalles-repartidor { display: flex; align-items: center; margin-top: 16px; padding-top: 16px; border-top: 1px solid #eee; }
-        .icono-camion { font-size: 24px; margin-right: 12px; background: #f0f0f0; padding: 10px; border-radius: 50%; }
-    </style>
-    
-    <script>
-        // Callback global para Google Maps
-        window.initMap = function() { window.mapaListo = true; };
-    </script>
-    
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC6WVTfKxF7XrOIXFXW0Bsg1mC_edDVI-0&libraries=geocoding&callback=initMap"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Despacho | Ferretería Granados</title>
+
+  <style>
+    :root {
+      --naranja: #ff9800;
+      --naranja-oscuro: #f57c00;
+      --verde: #2e7d32;
+      --azul: #1565c0;
+      --rojo: #d32f2f;
+      --gris-fondo: #f3f4f6;
+      --gris-texto: #667085;
+      --borde: #e4e7ec;
+      --sombra: 0 12px 35px rgba(16, 24, 40, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: var(--gris-fondo);
+      color: #1f2937;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    .oculto {
+      display: none !important;
+    }
+
+    .login-page {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
+
+    .login-card,
+    .panel {
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: var(--sombra);
+    }
+
+    .login-card {
+      width: min(420px, 100%);
+      padding: 30px;
+      border-top: 8px solid var(--naranja);
+    }
+
+    .login-card h1 {
+      margin: 0 0 8px;
+      color: var(--naranja-oscuro);
+      text-align: center;
+      font-size: 24px;
+    }
+
+    .login-card p {
+      margin: 0 0 24px;
+      color: var(--gris-texto);
+      text-align: center;
+    }
+
+    .app-shell {
+      min-height: 100vh;
+      padding: 18px;
+    }
+
+    .topbar {
+      max-width: 1280px;
+      margin: 0 auto 18px;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 6px 20px rgba(16, 24, 40, 0.10);
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .marca {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .marca-icono {
+      width: 44px;
+      height: 44px;
+      border-radius: 13px;
+      display: grid;
+      place-items: center;
+      background: var(--naranja);
+      color: #fff;
+      font-size: 22px;
+    }
+
+    .marca h1 {
+      margin: 0;
+      font-size: 19px;
+      color: #111827;
+    }
+
+    .marca small {
+      color: var(--gris-texto);
+    }
+
+    .layout {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(340px, 440px) minmax(0, 1fr);
+      gap: 18px;
+    }
+
+    .panel {
+      overflow: hidden;
+    }
+
+    .panel-formulario {
+      padding: 24px;
+      border-top: 7px solid var(--naranja);
+    }
+
+    .panel-mapa {
+      min-height: 720px;
+      position: relative;
+    }
+
+    .seccion {
+      padding-top: 18px;
+      margin-top: 18px;
+      border-top: 1px dashed var(--borde);
+    }
+
+    .seccion:first-of-type {
+      border-top: 0;
+      margin-top: 0;
+      padding-top: 0;
+    }
+
+    .seccion h2 {
+      font-size: 15px;
+      margin: 0 0 13px;
+      color: #344054;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: #475467;
+      margin: 11px 0 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    input,
+    select {
+      width: 100%;
+      padding: 12px 13px;
+      border: 1.5px solid var(--borde);
+      border-radius: 10px;
+      background: #fff;
+      color: #101828;
+      outline: none;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: var(--naranja);
+      box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.14);
+    }
+
+    .fila {
+      display: grid;
+      grid-template-columns: 1fr 120px;
+      gap: 10px;
+    }
+
+    .botones {
+      display: grid;
+      gap: 9px;
+      margin-top: 15px;
+    }
+
+    .botones-dos {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    button {
+      min-height: 45px;
+      border: 0;
+      border-radius: 10px;
+      padding: 11px 14px;
+      cursor: pointer;
+      font-weight: 800;
+      transition: transform 0.12s ease, opacity 0.12s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+      transform: none;
+    }
+
+    .btn-primario {
+      background: var(--naranja);
+      color: #fff;
+    }
+
+    .btn-secundario {
+      background: #475467;
+      color: #fff;
+    }
+
+    .btn-verde {
+      background: var(--verde);
+      color: #fff;
+    }
+
+    .btn-azul {
+      background: var(--azul);
+      color: #fff;
+    }
+
+    .btn-rojo {
+      background: var(--rojo);
+      color: #fff;
+    }
+
+    .btn-claro {
+      background: #fff3e0;
+      color: #b45309;
+      border: 1px solid #fed7aa;
+    }
+
+    .estado-box {
+      margin-top: 14px;
+      border-radius: 12px;
+      padding: 13px;
+      background: #f9fafb;
+      border: 1px solid var(--borde);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .estado-ok {
+      background: #ecfdf3;
+      border-color: #abefc6;
+      color: #067647;
+    }
+
+    .estado-alerta {
+      background: #fffaeb;
+      border-color: #fedf89;
+      color: #b54708;
+    }
+
+    .estado-error {
+      background: #fef3f2;
+      border-color: #fecdca;
+      color: #b42318;
+    }
+
+    #map {
+      width: 100%;
+      min-height: 720px;
+      height: 100%;
+    }
+
+    .map-overlay {
+      position: absolute;
+      z-index: 2;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      pointer-events: none;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .map-chip {
+      pointer-events: auto;
+      background: rgba(255, 255, 255, 0.96);
+      border-radius: 12px;
+      box-shadow: 0 5px 18px rgba(16, 24, 40, 0.16);
+      padding: 11px 13px;
+      font-size: 13px;
+      max-width: 360px;
+    }
+
+    .map-chip strong {
+      display: block;
+      margin-bottom: 3px;
+    }
+
+    .pedido-activo {
+      padding: 14px;
+      border-radius: 12px;
+      background: #eff8ff;
+      border: 1px solid #b2ddff;
+      color: #175cd3;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .whatsapp {
+      display: block;
+      margin-top: 12px;
+      padding: 13px;
+      border-radius: 10px;
+      background: #25d366;
+      color: #fff;
+      text-align: center;
+      text-decoration: none;
+      font-weight: 800;
+    }
+
+    .mini {
+      margin-top: 7px;
+      font-size: 12px;
+      color: var(--gris-texto);
+    }
+
+
+    .acciones-topbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .modal-fondo {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background: rgba(15, 23, 42, 0.62);
+      backdrop-filter: blur(3px);
+    }
+
+    .modal-card {
+      width: min(500px, 100%);
+      max-height: calc(100vh - 36px);
+      overflow-y: auto;
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 25px 60px rgba(15, 23, 42, 0.28);
+      padding: 24px;
+      border-top: 7px solid var(--naranja);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .modal-header h2 {
+      margin: 0 0 5px;
+      color: #111827;
+      font-size: 22px;
+    }
+
+    .modal-header p {
+      margin: 0;
+      color: var(--gris-texto);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .btn-cerrar-modal {
+      width: 38px;
+      min-width: 38px;
+      height: 38px;
+      padding: 0;
+      border-radius: 50%;
+      background: #f2f4f7;
+      color: #344054;
+      font-size: 20px;
+    }
+
+    .nota-seguridad {
+      margin-top: 12px;
+      padding: 11px 12px;
+      border-radius: 10px;
+      background: #fffaeb;
+      border: 1px solid #fedf89;
+      color: #93370d;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .panel-mapa,
+      #map {
+        min-height: 520px;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .app-shell {
+        padding: 10px;
+      }
+
+      .panel-formulario {
+        padding: 18px;
+      }
+
+      .fila,
+      .botones-dos {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        align-items: flex-start;
+      }
+
+      .topbar .btn-rojo {
+        min-height: 38px;
+        padding: 8px 10px;
+      }
+    }
+
+    .modal-card.modal-ancho {
+      width: min(1080px, 96vw);
+      max-height: 90vh;
+      overflow: auto;
+    }
+
+    .historial-controles {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) 220px auto;
+      gap: 10px;
+      margin: 18px 0 14px;
+      align-items: end;
+    }
+
+    .historial-resumen {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(120px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .resumen-card {
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      padding: 13px;
+    }
+
+    .resumen-card small {
+      display: block;
+      color: #6b7280;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+
+    .resumen-card strong {
+      font-size: 24px;
+      color: #111827;
+    }
+
+    .tabla-contenedor {
+      overflow-x: auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+    }
+
+    .tabla-historial {
+      width: 100%;
+      min-width: 900px;
+      border-collapse: collapse;
+      background: #ffffff;
+    }
+
+    .tabla-historial th,
+    .tabla-historial td {
+      padding: 12px 11px;
+      border-bottom: 1px solid #edf0f3;
+      text-align: left;
+      vertical-align: top;
+      font-size: 13px;
+    }
+
+    .tabla-historial th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #f8fafc;
+      color: #374151;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+    }
+
+    .tabla-historial tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .badge-estado {
+      display: inline-block;
+      padding: 5px 9px;
+      border-radius: 999px;
+      color: #ffffff;
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .badge-asignado { background: #2563eb; }
+    .badge-en_preparacion { background: #d97706; }
+    .badge-en_camino { background: #dc2626; }
+    .badge-entregado { background: #16a34a; }
+    .badge-cancelado { background: #6b7280; }
+    .badge-otro { background: #475569; }
+
+    .historial-vacio {
+      padding: 24px;
+      text-align: center;
+      color: #6b7280;
+    }
+
+    @media (max-width: 780px) {
+      .historial-controles {
+        grid-template-columns: 1fr;
+      }
+
+      .historial-resumen {
+        grid-template-columns: repeat(2, minmax(120px, 1fr));
+      }
+    }
+
+  </style>
 </head>
+
 <body>
+  <section id="loginPage" class="login-page">
+    <div class="login-card">
+      <h1>Ferretería Granados</h1>
+      <p>Acceso al mostrador de despacho</p>
 
-    <div id="mapa"></div>
+      <label for="loginEmail">Correo</label>
+      <input id="loginEmail" type="email" autocomplete="username" placeholder="mostrador@granados.com" />
 
-    <div class="panel-info">
-        <span class="etiqueta-estado" id="estado-texto" style="background: #f9ab00;">INICIANDO...</span>
-        <h2 class="titulo" id="titulo-principal">Cargando...</h2>
-        <p class="subtitulo" id="subtitulo-destino">Ferretería Granados</p>
-        
-        <div class="detalles-repartidor">
-            <div class="icono-camion">🚚</div>
-            <div>
-                <p style="margin: 0; font-weight: 600; font-size: 15px;">Repartidor local</p>
-                <p style="margin: 2px 0 0 0; font-size: 13px; color: #666;">Vehículo de carga</p>
-            </div>
-        </div>
+      <label for="loginPassword">Contraseña</label>
+      <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Contraseña" />
+
+      <div class="botones">
+        <button id="btnLogin" class="btn-primario">INICIAR SESIÓN</button>
+      </div>
+
+      <div id="loginEstado" class="estado-box oculto"></div>
     </div>
+  </section>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+  <main id="appPage" class="app-shell oculto">
+    <header class="topbar">
+      <div class="marca">
+        <div class="marca-icono">🚚</div>
+        <div>
+          <h1>Ferretería Granados</h1>
+          <small id="usuarioActual">Mostrador de despacho</small>
+        </div>
+      </div>
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyBNC-Oh6i2wyZMRiailIoYZ8rzpjN-6wBo",
-            authDomain: "ferreteria-envios.firebaseapp.com",
-            projectId: "ferreteria-envios",
-            storageBucket: "ferreteria-envios.firebasestorage.app",
-            messagingSenderId: "871957193583",
-            appId: "1:871957193583:web:e093c54efa0919b142be9a"
-        };
+      <div class="acciones-topbar">
+        <button id="btnHistorialDia" class="btn-azul">📋 Historial del día</button>
+        <button id="btnNuevoRepartidor" class="btn-verde">➕ Crear repartidor</button>
+        <button id="btnLogout" class="btn-rojo">Cerrar sesión</button>
+      </div>
+    </header>
 
-        initializeApp(firebaseConfig);
-        const db = getFirestore();
+    <div class="layout">
+      <section class="panel panel-formulario">
+        <div class="seccion">
+          <h2>1. Cliente y dirección</h2>
 
-        let map, markerCamion, markerDestino, geocoder;
-        let esPrimeraUbicacion = true;
+          <label for="selectCliente">Cliente guardado</label>
+          <select id="selectCliente">
+            <option value="">-- Seleccionar cliente --</option>
+          </select>
 
-        // Función de animación suave
-        function animarMarcador(marker, nuevaPos, duracion = 3500) {
-            const posInicial = marker.getPosition();
-            if (!posInicial) {
-                marker.setPosition(nuevaPos);
-                return;
-            }
+          <input id="docId" type="hidden" />
 
-            const lat1 = posInicial.lat();
-            const lng1 = posInicial.lng();
-            const lat2 = nuevaPos.lat;
-            const lng2 = nuevaPos.lng;
-            const startTime = performance.now();
+          <label for="cliente">Nombre del cliente</label>
+          <input id="cliente" placeholder="Nombre del cliente" />
 
-            function frame(currentTime) {
-                const elapsed = currentTime - startTime;
-                const progress = Math.min(elapsed / duracion, 1);
-                const currentLat = lat1 + (lat2 - lat1) * progress;
-                const currentLng = lng1 + (lng2 - lng1) * progress;
-                marker.setPosition({ lat: currentLat, lng: currentLng });
-                if (progress < 1) requestAnimationFrame(frame);
-            }
-            requestAnimationFrame(frame);
+          <div class="fila">
+            <div>
+              <label for="selectCalle">Calle</label>
+              <select id="selectCalle">
+                <option value="">-- Seleccionar calle --</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="numExterior">Número</label>
+              <input id="numExterior" placeholder="Ej. 25" />
+            </div>
+          </div>
+
+          <div class="botones botones-dos">
+            <button id="btnVistaPrevia" class="btn-azul">📍 Ubicar destino</button>
+            <button id="btnLimpiar" class="btn-claro">Limpiar</button>
+          </div>
+
+          <div class="botones botones-dos">
+            <button id="btnGuardarCliente" class="btn-secundario">Guardar cambios</button>
+            <button id="btnNuevoCliente" class="btn-verde">Guardar nuevo</button>
+          </div>
+
+          <div class="botones">
+            <button id="btnEliminarCliente" class="btn-rojo">Eliminar cliente</button>
+          </div>
+        </div>
+
+        <div class="seccion">
+          <h2>2. Asignación</h2>
+
+          <label for="selectRepartidor">Repartidor</label>
+          <select id="selectRepartidor">
+            <option value="">-- Seleccionar repartidor --</option>
+          </select>
+
+          <div id="zonaEstado" class="estado-box">
+            Ubica el destino para validar la zona de entrega.
+          </div>
+
+          <div class="botones">
+            <button id="btnCrearPedido" class="btn-primario" disabled>
+              🚀 Crear y asignar pedido
+            </button>
+          </div>
+        </div>
+
+        <div class="seccion">
+          <h2>3. Pedido actual</h2>
+
+          <div id="pedidoActual" class="pedido-activo">
+            No hay un pedido creado en esta sesión.
+          </div>
+
+          <div class="botones">
+            <button id="btnCancelarPedido" class="btn-rojo" disabled>
+              Cancelar pedido
+            </button>
+          </div>
+
+          <div id="resultado"></div>
+        </div>
+      </section>
+
+      <section class="panel panel-mapa">
+        <div class="map-overlay">
+          <div class="map-chip">
+            <strong>Origen</strong>
+            Ferretería Granados<br />
+            20.922644, -104.091522
+          </div>
+
+          <div id="chipDistancia" class="map-chip">
+            <strong>Destino</strong>
+            Pendiente
+          </div>
+        </div>
+
+        <div id="map"></div>
+      </section>
+    </div>
+  </main>
+
+  <section id="modalRepartidor" class="modal-fondo oculto" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="tituloModalRepartidor">
+      <div class="modal-header">
+        <div>
+          <h2 id="tituloModalRepartidor">Crear repartidor</h2>
+          <p>Se creará su cuenta de acceso y su perfil en Firestore.</p>
+        </div>
+        <button id="btnCerrarModalRepartidor" class="btn-cerrar-modal" type="button" aria-label="Cerrar">×</button>
+      </div>
+
+      <label for="repartidorNombre">Nombre completo</label>
+      <input id="repartidorNombre" autocomplete="name" placeholder="Ej. Juan Pérez" />
+
+      <label for="repartidorTelefono">Teléfono</label>
+      <input id="repartidorTelefono" type="tel" autocomplete="tel" placeholder="Ej. 33 1234 5678" />
+
+      <label for="repartidorCorreo">Correo para iniciar sesión</label>
+      <input id="repartidorCorreo" type="email" autocomplete="off" placeholder="repartidor@granados.com" />
+
+      <label for="repartidorPassword">Contraseña temporal</label>
+      <input id="repartidorPassword" type="password" autocomplete="new-password" placeholder="Mínimo 6 caracteres" />
+
+      <label for="repartidorPasswordConfirmar">Confirmar contraseña</label>
+      <input id="repartidorPasswordConfirmar" type="password" autocomplete="new-password" placeholder="Repite la contraseña" />
+
+      <div class="botones botones-dos">
+        <button id="btnCancelarNuevoRepartidor" class="btn-claro" type="button">Cancelar</button>
+        <button id="btnGuardarRepartidor" class="btn-verde" type="button">Crear repartidor</button>
+      </div>
+
+      <div id="estadoNuevoRepartidor" class="estado-box oculto"></div>
+
+      <div class="nota-seguridad">
+        La contraseña es temporal. Entrégala directamente al repartidor y pídele que la cambie después.
+      </div>
+    </div>
+  </section>
+
+
+  <section id="modalHistorial" class="modal-fondo oculto" aria-hidden="true">
+    <div class="modal-card modal-ancho" role="dialog" aria-modal="true" aria-labelledby="tituloModalHistorial">
+      <div class="modal-header">
+        <div>
+          <h2 id="tituloModalHistorial">Historial del día</h2>
+          <p id="fechaHistorial">Pedidos creados hoy</p>
+        </div>
+        <button id="btnCerrarModalHistorial" class="btn-cerrar-modal" type="button" aria-label="Cerrar">×</button>
+      </div>
+
+      <div class="historial-controles">
+        <div>
+          <label for="buscarHistorial">Buscar</label>
+          <input id="buscarHistorial" placeholder="Cliente, dirección, repartidor o ID" />
+        </div>
+
+        <div>
+          <label for="filtroEstadoHistorial">Estado</label>
+          <select id="filtroEstadoHistorial">
+            <option value="">Todos los estados</option>
+            <option value="asignado">Asignado</option>
+            <option value="en_preparacion">En preparación</option>
+            <option value="en_camino">En camino</option>
+            <option value="entregado">Entregado</option>
+            <option value="cancelado">Cancelado</option>
+          </select>
+        </div>
+
+        <button id="btnActualizarHistorial" class="btn-azul" type="button">Actualizar</button>
+      </div>
+
+      <div class="historial-resumen">
+        <div class="resumen-card"><small>Total</small><strong id="histTotal">0</strong></div>
+        <div class="resumen-card"><small>Entregados</small><strong id="histEntregados">0</strong></div>
+        <div class="resumen-card"><small>En camino</small><strong id="histEnCamino">0</strong></div>
+        <div class="resumen-card"><small>Asignados</small><strong id="histAsignados">0</strong></div>
+        <div class="resumen-card"><small>Cancelados</small><strong id="histCancelados">0</strong></div>
+      </div>
+
+      <div id="estadoHistorial" class="estado-box oculto"></div>
+
+      <div class="tabla-contenedor">
+        <table class="tabla-historial">
+          <thead>
+            <tr>
+              <th>Hora</th>
+              <th>Cliente</th>
+              <th>Dirección</th>
+              <th>Repartidor</th>
+              <th>Estado</th>
+              <th>Inicio</th>
+              <th>Entrega</th>
+              <th>Duración</th>
+              <th>ID</th>
+            </tr>
+          </thead>
+          <tbody id="tablaHistorialBody">
+            <tr><td colspan="9" class="historial-vacio">Abre el historial para cargar los pedidos.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+
+    import {
+      createUserWithEmailAndPassword,
+      getAuth,
+      onAuthStateChanged,
+      signInWithEmailAndPassword,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+    import {
+      addDoc,
+      collection,
+      deleteDoc,
+      doc,
+      getDoc,
+      getDocs,
+      orderBy,
+      query,
+      serverTimestamp,
+      setDoc,
+      updateDoc
+    } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+    import {
+      getFirestore
+    } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBNC-Oh6i2wyZMRiailIoYZ8rzpjN-6wBo",
+      authDomain: "ferreteria-envios.firebaseapp.com",
+      projectId: "ferreteria-envios",
+      storageBucket: "ferreteria-envios.firebasestorage.app",
+      messagingSenderId: "871957193583",
+      appId: "1:871957193583:web:e093c54efa0919b142be9a"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // Una instancia secundaria permite crear otra cuenta sin cerrar
+    // la sesión actual del despachador.
+    const appCreacionUsuarios = initializeApp(firebaseConfig, "creacion-repartidores");
+    const authCreacionUsuarios = getAuth(appCreacionUsuarios);
+
+    const CONFIG = {
+      empresa: {
+        nombre: "Ferretería Granados",
+        lat: 20.922644,
+        lng: -104.091522
+      },
+
+      zona: {
+        localidad: "San Andrés",
+        municipio: "Magdalena",
+        estado: "Jalisco",
+        pais: "México",
+        radioHabitualMetros: 1500,
+        radioMaximoMetros: 5000
+      },
+
+      enlaceSeguimiento: "https://arceo86.github.io/envio-granados/",
+
+      pinVehiculoUrl:
+        "https://lh3.googleusercontent.com/d/1BO70O8A3Qf0qPeoFoCqezV3G0sNZMkc4"
+    };
+
+    const calles = [
+      "Calle 5 de Febrero",
+      "Calle Allende",
+      "Calle Colón",
+      "Calle Degollado",
+      "Calle Donato Guerra",
+      "Calle Javier Mina",
+      "Calle Francisco Villa",
+      "Calle Hidalgo",
+      "Calle Josefa Ortiz de Domínguez",
+      "Calle López Mateos",
+      "Calle Melchor Ocampo",
+      "Calle Morelos",
+      "Calle Prisciliano Sánchez",
+      "Calle Vallarta",
+      "Calle Zaragoza",
+      "Privada Guadalupe Victoria",
+      "Privada Guerrero",
+      "Privada Herrera y Cairo",
+      "Privada Lerdo de Tejada",
+      "Privada López Cotilla",
+      "Privada M. Miramontes",
+      "Privada Manuel M. Diéguez",
+      "Privada Mariano Jiménez"
+    ];
+
+    let mapa = null;
+    let geocoder = null;
+    let marcadorOrigen = null;
+    let marcadorDestino = null;
+    let circuloZona = null;
+
+    let listaClientes = [];
+    let listaRepartidores = [];
+    let destinoActual = null;
+    let pedidoActualId = localStorage.getItem("pedidoActualId") || "";
+
+    const $ = (id) => document.getElementById(id);
+
+    function mostrarEstado(elemento, mensaje, tipo = "") {
+      elemento.textContent = mensaje;
+      elemento.classList.remove("oculto", "estado-ok", "estado-alerta", "estado-error");
+
+      if (tipo) {
+        elemento.classList.add(`estado-${tipo}`);
+      }
+    }
+
+    function limpiarEstado(elemento) {
+      elemento.textContent = "";
+      elemento.classList.add("oculto");
+    }
+
+    function escaparTexto(valor) {
+      return String(valor ?? "").trim();
+    }
+
+    function obtenerDireccionCorta() {
+      const calle = escaparTexto($("selectCalle").value);
+      const numero = escaparTexto($("numExterior").value);
+
+      if (!calle || !numero) {
+        throw new Error("Selecciona la calle y escribe el número exterior.");
+      }
+
+      return `${calle} ${numero}`;
+    }
+
+    function obtenerDireccionCompleta() {
+      const direccionCorta = obtenerDireccionCorta();
+
+      return `${direccionCorta}, ${CONFIG.zona.localidad}, ${CONFIG.zona.municipio}, ${CONFIG.zona.estado}, ${CONFIG.zona.pais}`;
+    }
+
+    function radianes(grados) {
+      return (grados * Math.PI) / 180;
+    }
+
+    function calcularDistanciaMetros(a, b) {
+      const radioTierra = 6371000;
+      const dLat = radianes(b.lat - a.lat);
+      const dLng = radianes(b.lng - a.lng);
+
+      const h =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(radianes(a.lat)) *
+          Math.cos(radianes(b.lat)) *
+          Math.sin(dLng / 2) ** 2;
+
+      return radioTierra * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+    }
+
+    function formatearDistancia(metros) {
+      if (!Number.isFinite(metros)) return "No disponible";
+      if (metros < 1000) return `${Math.round(metros)} m`;
+      return `${(metros / 1000).toFixed(2)} km`;
+    }
+
+    function crearBoundsLocales() {
+      const centro = CONFIG.empresa;
+
+      return new google.maps.LatLngBounds(
+        {
+          lat: centro.lat - 0.035,
+          lng: centro.lng - 0.035
+        },
+        {
+          lat: centro.lat + 0.035,
+          lng: centro.lng + 0.035
+        }
+      );
+    }
+
+    function evaluarDestino(destino) {
+      const distancia = calcularDistanciaMetros(
+        CONFIG.empresa,
+        destino
+      );
+
+      destinoActual = {
+        ...destino,
+        distanciaMetros: Math.round(distancia)
+      };
+
+      $("chipDistancia").innerHTML = `
+        <strong>Destino</strong>
+        ${formatearDistancia(distancia)} desde la ferretería
+      `;
+
+      if (distancia <= CONFIG.zona.radioHabitualMetros) {
+        mostrarEstado(
+          $("zonaEstado"),
+          `Destino dentro de la zona habitual: ${formatearDistancia(distancia)}.`,
+          "ok"
+        );
+
+        $("btnCrearPedido").disabled = false;
+        return;
+      }
+
+      if (distancia <= CONFIG.zona.radioMaximoMetros) {
+        mostrarEstado(
+          $("zonaEstado"),
+          `El destino está fuera del radio habitual de 1.5 km, pero sigue dentro del máximo configurado: ${formatearDistancia(distancia)}.`,
+          "alerta"
+        );
+
+        $("btnCrearPedido").disabled = false;
+        return;
+      }
+
+      mostrarEstado(
+        $("zonaEstado"),
+        `Atención: Google ubicó el destino a ${formatearDistancia(distancia)}. Corrige el marcador antes de crear el pedido.`,
+        "error"
+      );
+
+      $("btnCrearPedido").disabled = true;
+    }
+
+    function colocarDestino(posicion, centrar = true) {
+      if (!marcadorDestino) {
+        marcadorDestino = new google.maps.Marker({
+          map: mapa,
+          position: posicion,
+          title: "Destino de entrega",
+          draggable: true
+        });
+
+        marcadorDestino.addListener("dragend", () => {
+          const posicionNueva = marcadorDestino.getPosition();
+
+          evaluarDestino({
+            lat: posicionNueva.lat(),
+            lng: posicionNueva.lng()
+          });
+        });
+      } else {
+        marcadorDestino.setPosition(posicion);
+      }
+
+      if (centrar) {
+        const bounds = new google.maps.LatLngBounds();
+        bounds.extend(CONFIG.empresa);
+        bounds.extend(posicion);
+        mapa.fitBounds(bounds, 80);
+      }
+
+      evaluarDestino(posicion);
+    }
+
+    async function ubicarDestino() {
+      try {
+        $("btnVistaPrevia").disabled = true;
+        $("btnCrearPedido").disabled = true;
+
+        mostrarEstado(
+          $("zonaEstado"),
+          "Buscando la dirección en Google Maps..."
+        );
+
+        const direccionCompleta = obtenerDireccionCompleta();
+
+        const respuesta = await geocoder.geocode({
+          address: direccionCompleta,
+          bounds: crearBoundsLocales(),
+          region: "mx",
+          componentRestrictions: {
+            country: "MX"
+          }
+        });
+
+        if (!respuesta.results?.length) {
+          throw new Error("Google Maps no encontró la dirección.");
         }
 
-        const arrancarMapa = () => {
-            geocoder = new google.maps.Geocoder();
-            map = new google.maps.Map(document.getElementById("mapa"), {
-                center: { lat: 20.922694, lng: -104.091833 },
-                zoom: 15,
-                disableDefaultUI: true
-            });
+        const resultado = respuesta.results[0];
+        const ubicacion = resultado.geometry.location;
 
-            markerCamion = new google.maps.Marker({
-                position: { lat: 20.922694, lng: -104.091833 },
-                map: map,
-                optimized: false,
-                icon: {
-                    url: 'https://lh3.googleusercontent.com/d/1BO70O8A3Qf0qPeoFoCqezV3G0sNZMkc4',
-                    scaledSize: new google.maps.Size(40, 40),
-                    anchor: new google.maps.Point(20, 40)
-                }
-            });
+        colocarDestino({
+          lat: ubicacion.lat(),
+          lng: ubicacion.lng()
+        });
+      } catch (error) {
+        console.error(error);
 
-            markerDestino = new google.maps.Marker({
-                map: map,
-                icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
-            });
+        destinoActual = null;
+        $("btnCrearPedido").disabled = true;
 
-            iniciarEscuchaFirebase();
-        };
+        mostrarEstado(
+          $("zonaEstado"),
+          error.message || "No fue posible ubicar el destino.",
+          "error"
+        );
+      } finally {
+        $("btnVistaPrevia").disabled = false;
+      }
+    }
 
-        // Lógica de sincronización
-        if (window.mapaListo) {
-            arrancarMapa();
-        } else {
-            window.initMap = arrancarMapa;
+    window.addEventListener("load", () => {
+      const centro = CONFIG.empresa;
+
+      mapa = new google.maps.Map($("map"), {
+        center: centro,
+        zoom: 16,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: true
+      });
+
+      geocoder = new google.maps.Geocoder();
+
+      marcadorOrigen = new google.maps.Marker({
+        map: mapa,
+        position: centro,
+        title: CONFIG.empresa.nombre,
+        icon: {
+          url: CONFIG.pinVehiculoUrl,
+          scaledSize: new google.maps.Size(84, 56),
+          anchor: new google.maps.Point(42, 52)
+        },
+        zIndex: 10
+      });
+
+      circuloZona = new google.maps.Circle({
+        map: mapa,
+        center: centro,
+        radius: CONFIG.zona.radioHabitualMetros,
+        fillColor: "#ff9800",
+        fillOpacity: 0.08,
+        strokeColor: "#ff9800",
+        strokeOpacity: 0.65,
+        strokeWeight: 2,
+        clickable: false
+      });
+    });
+
+    async function cargarClientes() {
+      try {
+        const consulta = query(
+          collection(db, "clientes"),
+          orderBy("nombre")
+        );
+
+        const snapshot = await getDocs(consulta);
+        listaClientes = snapshot.docs.map((item) => ({
+          id: item.id,
+          ...item.data()
+        }));
+
+        const select = $("selectCliente");
+        select.innerHTML = '<option value="">-- Seleccionar cliente --</option>';
+
+        listaClientes.forEach((cliente, indice) => {
+          const opcion = document.createElement("option");
+          opcion.value = String(indice);
+          opcion.textContent = cliente.nombre || "Cliente sin nombre";
+          select.appendChild(opcion);
+        });
+      } catch (error) {
+        console.error("No se pudieron cargar clientes:", error);
+        alert("No se pudo cargar el catálogo de clientes.");
+      }
+    }
+
+    async function cargarRepartidores() {
+      try {
+        const snapshot = await getDocs(
+          collection(db, "repartidores")
+        );
+
+        listaRepartidores = snapshot.docs
+          .map((item) => ({
+            uid: item.id,
+            ...item.data()
+          }))
+          .sort((a, b) => {
+            const nombreA = (a.nombre || a.correo || "").toLowerCase();
+            const nombreB = (b.nombre || b.correo || "").toLowerCase();
+            return nombreA.localeCompare(nombreB, "es");
+          });
+
+        const select = $("selectRepartidor");
+        select.innerHTML = '<option value="">-- Seleccionar repartidor --</option>';
+
+        listaRepartidores.forEach((repartidor) => {
+          const opcion = document.createElement("option");
+          opcion.value = repartidor.uid;
+
+          const nombre =
+            repartidor.nombre && repartidor.nombre !== "Repartidor"
+              ? repartidor.nombre
+              : repartidor.correo || repartidor.uid;
+
+          opcion.textContent = `${nombre} · ${repartidor.estado || "sin estado"}`;
+          select.appendChild(opcion);
+        });
+      } catch (error) {
+        console.error("No se pudieron cargar repartidores:", error);
+        alert("No se pudo cargar la lista de repartidores.");
+      }
+    }
+
+    function cargarClienteSeleccionado() {
+      const indice = $("selectCliente").value;
+
+      if (indice === "") {
+        limpiarFormularioCliente();
+        return;
+      }
+
+      const cliente = listaClientes[Number(indice)];
+
+      $("docId").value = cliente.id;
+      $("cliente").value = cliente.nombre || "";
+
+      const direccion = cliente.direccion || "";
+      const coincidencia = direccion.match(/^(.*)\s+([A-Za-z0-9\-\/]+)$/);
+
+      if (coincidencia) {
+        $("selectCalle").value = coincidencia[1].trim();
+        $("numExterior").value = coincidencia[2].trim();
+      } else {
+        $("selectCalle").value = "";
+        $("numExterior").value = direccion;
+      }
+
+      invalidarDestino();
+    }
+
+    function invalidarDestino() {
+      destinoActual = null;
+      $("btnCrearPedido").disabled = true;
+
+      mostrarEstado(
+        $("zonaEstado"),
+        "La dirección cambió. Vuelve a ubicar el destino."
+      );
+
+      if (marcadorDestino) {
+        marcadorDestino.setMap(null);
+        marcadorDestino = null;
+      }
+
+      $("chipDistancia").innerHTML = `
+        <strong>Destino</strong>
+        Pendiente
+      `;
+    }
+
+    function limpiarFormularioCliente() {
+      $("docId").value = "";
+      $("cliente").value = "";
+      $("selectCalle").value = "";
+      $("numExterior").value = "";
+      $("selectCliente").value = "";
+      invalidarDestino();
+    }
+
+    async function guardarCambiosCliente() {
+      const id = $("docId").value;
+      const nombre = escaparTexto($("cliente").value);
+
+      if (!id) {
+        alert("Selecciona un cliente primero.");
+        return;
+      }
+
+      if (!nombre) {
+        alert("Escribe el nombre del cliente.");
+        return;
+      }
+
+      const direccion = obtenerDireccionCorta();
+
+      await updateDoc(
+        doc(db, "clientes", id),
+        {
+          nombre,
+          direccion,
+          ultimaActualizacion: serverTimestamp()
+        }
+      );
+
+      alert("Cliente actualizado.");
+      await cargarClientes();
+    }
+
+    async function guardarNuevoCliente() {
+      const nombre = escaparTexto($("cliente").value);
+
+      if (!nombre) {
+        alert("Escribe el nombre del cliente.");
+        return;
+      }
+
+      const direccion = obtenerDireccionCorta();
+
+      const referencia = await addDoc(
+        collection(db, "clientes"),
+        {
+          nombre,
+          direccion,
+          fechaRegistro: serverTimestamp(),
+          ultimaActualizacion: serverTimestamp()
+        }
+      );
+
+      $("docId").value = referencia.id;
+      alert("Cliente guardado.");
+      await cargarClientes();
+    }
+
+    async function eliminarClienteActual() {
+      const id = $("docId").value;
+
+      if (!id) {
+        alert("Selecciona un cliente.");
+        return;
+      }
+
+      if (!confirm("¿Eliminar este cliente?")) return;
+
+      await deleteDoc(doc(db, "clientes", id));
+      limpiarFormularioCliente();
+      await cargarClientes();
+      alert("Cliente eliminado.");
+    }
+
+    async function crearPedido() {
+      const cliente = escaparTexto($("cliente").value);
+      const repartidorUID = $("selectRepartidor").value;
+
+      if (!cliente) {
+        alert("Escribe el nombre del cliente.");
+        return;
+      }
+
+      if (!repartidorUID) {
+        alert("Selecciona un repartidor.");
+        return;
+      }
+
+      if (!destinoActual) {
+        alert("Ubica y valida el destino.");
+        return;
+      }
+
+      if (
+        destinoActual.distanciaMetros >
+        CONFIG.zona.radioMaximoMetros
+      ) {
+        alert("El destino está fuera del radio máximo configurado.");
+        return;
+      }
+
+      const direccionCorta = obtenerDireccionCorta();
+      const direccionCompleta = obtenerDireccionCompleta();
+
+      const repartidor = listaRepartidores.find(
+        (item) => item.uid === repartidorUID
+      );
+
+      $("btnCrearPedido").disabled = true;
+
+      try {
+        const referencia = await addDoc(
+          collection(db, "pedidos"),
+          {
+            cliente,
+            direccion: direccionCompleta,
+            direccionCorta,
+
+            origen: {
+              nombre: CONFIG.empresa.nombre,
+              latitud: CONFIG.empresa.lat,
+              longitud: CONFIG.empresa.lng
+            },
+
+            destino: {
+              latitud: destinoActual.lat,
+              longitud: destinoActual.lng
+            },
+
+            // Compatibilidad directa con la app del repartidor.
+            latitud: destinoActual.lat,
+            longitud: destinoActual.lng,
+
+            distanciaEstimadaMetros:
+              destinoActual.distanciaMetros,
+
+            zonaOperacion: {
+              localidad: CONFIG.zona.localidad,
+              municipio: CONFIG.zona.municipio,
+              estado: CONFIG.zona.estado,
+              pais: CONFIG.zona.pais
+            },
+
+            estado: "asignado",
+            repartidorUID,
+            repartidorNombre:
+              repartidor?.nombre ||
+              repartidor?.correo ||
+              "Repartidor",
+
+            creadoPorUID: auth.currentUser?.uid || null,
+            creadoPorCorreo: auth.currentUser?.email || null,
+            fechaCreacion: serverTimestamp(),
+            ultimaActualizacion: serverTimestamp()
+          }
+        );
+
+        pedidoActualId = referencia.id;
+        localStorage.setItem("pedidoActualId", pedidoActualId);
+
+        $("pedidoActual").innerHTML = `
+          <strong>Pedido:</strong> ${pedidoActualId}<br>
+          <strong>Cliente:</strong> ${cliente}<br>
+          <strong>Repartidor:</strong> ${
+            repartidor?.nombre ||
+            repartidor?.correo ||
+            repartidorUID
+          }<br>
+          <strong>Distancia:</strong> ${
+            formatearDistancia(destinoActual.distanciaMetros)
+          }<br>
+          <strong>Estado:</strong> asignado
+        `;
+
+        $("btnCancelarPedido").disabled = false;
+
+        const enlaceSeguimiento =
+          `${CONFIG.enlaceSeguimiento}?pedido=${encodeURIComponent(pedidoActualId)}`;
+
+        const mensaje =
+          `Hola ${cliente}. Tu pedido de Ferretería Granados fue asignado y será enviado a ${direccionCorta}. ` +
+          `Puedes seguirlo aquí: ${enlaceSeguimiento}`;
+
+        $("resultado").innerHTML = `
+          <a
+            class="whatsapp"
+            href="https://wa.me/?text=${encodeURIComponent(mensaje)}"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Enviar seguimiento por WhatsApp 📲
+          </a>
+
+          <div class="mini">
+            El pedido ya aparece en la aplicación del repartidor.
+          </div>
+        `;
+
+        alert("Pedido creado y asignado correctamente.");
+      } catch (error) {
+        console.error("No se pudo crear el pedido:", error);
+        alert(`No se pudo crear el pedido: ${error.message}`);
+      } finally {
+        $("btnCrearPedido").disabled = !destinoActual;
+      }
+    }
+
+    async function cancelarPedidoActual() {
+      if (!pedidoActualId) {
+        alert("No hay un pedido actual.");
+        return;
+      }
+
+      if (!confirm("¿Cancelar este pedido?")) return;
+
+      await updateDoc(
+        doc(db, "pedidos", pedidoActualId),
+        {
+          estado: "cancelado",
+          fechaCancelacion: serverTimestamp(),
+          ultimaActualizacion: serverTimestamp()
+        }
+      );
+
+      $("pedidoActual").innerHTML = `
+        <strong>Pedido:</strong> ${pedidoActualId}<br>
+        <strong>Estado:</strong> cancelado
+      `;
+
+      localStorage.removeItem("pedidoActualId");
+      pedidoActualId = "";
+      $("btnCancelarPedido").disabled = true;
+      $("resultado").innerHTML = "";
+
+      alert("Pedido cancelado.");
+    }
+
+    function abrirModalRepartidor() {
+      $("modalRepartidor").classList.remove("oculto");
+      $("modalRepartidor").setAttribute("aria-hidden", "false");
+      limpiarEstado($("estadoNuevoRepartidor"));
+      setTimeout(() => $("repartidorNombre").focus(), 50);
+    }
+
+    function cerrarModalRepartidor() {
+      $("modalRepartidor").classList.add("oculto");
+      $("modalRepartidor").setAttribute("aria-hidden", "true");
+    }
+
+    function limpiarFormularioRepartidor() {
+      $("repartidorNombre").value = "";
+      $("repartidorTelefono").value = "";
+      $("repartidorCorreo").value = "";
+      $("repartidorPassword").value = "";
+      $("repartidorPasswordConfirmar").value = "";
+    }
+
+    async function crearRepartidor() {
+      const nombre = escaparTexto($("repartidorNombre").value);
+      const telefono = escaparTexto($("repartidorTelefono").value);
+      const correo = escaparTexto($("repartidorCorreo").value).toLowerCase();
+      const password = $("repartidorPassword").value;
+      const confirmarPassword = $("repartidorPasswordConfirmar").value;
+
+      if (!nombre || !correo || !password) {
+        mostrarEstado(
+          $("estadoNuevoRepartidor"),
+          "Escribe nombre, correo y contraseña.",
+          "error"
+        );
+        return;
+      }
+
+      if (password.length < 6) {
+        mostrarEstado(
+          $("estadoNuevoRepartidor"),
+          "La contraseña debe tener al menos 6 caracteres.",
+          "error"
+        );
+        return;
+      }
+
+      if (password !== confirmarPassword) {
+        mostrarEstado(
+          $("estadoNuevoRepartidor"),
+          "Las contraseñas no coinciden.",
+          "error"
+        );
+        return;
+      }
+
+      $("btnGuardarRepartidor").disabled = true;
+
+      try {
+        const credencial = await createUserWithEmailAndPassword(
+          authCreacionUsuarios,
+          correo,
+          password
+        );
+
+        const nuevoUid = credencial.user.uid;
+
+        await setDoc(
+          doc(db, "repartidores", nuevoUid),
+          {
+            uid: nuevoUid,
+            nombre,
+            correo,
+            telefono: telefono || "",
+            activo: true,
+            estado: "disponible",
+            gpsActivo: false,
+            internetActivo: false,
+            pedidoActivoId: null,
+            ubicacion: null,
+            rol: "repartidor",
+            creadoPorUID: auth.currentUser?.uid || null,
+            creadoPorCorreo: auth.currentUser?.email || null,
+            fechaRegistro: serverTimestamp(),
+            ultimaActualizacion: serverTimestamp()
+          },
+          { merge: true }
+        );
+
+        // Cerramos solo la sesión de la instancia secundaria.
+        await signOut(authCreacionUsuarios);
+
+        await cargarRepartidores();
+        $("selectRepartidor").value = nuevoUid;
+
+        mostrarEstado(
+          $("estadoNuevoRepartidor"),
+          `Repartidor ${nombre} creado correctamente.`,
+          "ok"
+        );
+
+        limpiarFormularioRepartidor();
+
+        setTimeout(() => {
+          cerrarModalRepartidor();
+        }, 900);
+      } catch (error) {
+        console.error("No se pudo crear el repartidor:", error);
+
+        let mensaje = "No se pudo crear el repartidor.";
+
+        if (error.code === "auth/email-already-in-use") {
+          mensaje = "Ese correo ya está registrado en Authentication.";
+        } else if (error.code === "auth/invalid-email") {
+          mensaje = "El correo no tiene un formato válido.";
+        } else if (error.code === "auth/weak-password") {
+          mensaje = "La contraseña es demasiado débil.";
+        } else if (error.code === "permission-denied") {
+          mensaje = "Firestore bloqueó la creación del perfil. Revisa las reglas de repartidores.";
         }
 
-        function iniciarEscuchaFirebase() {
-            onSnapshot(doc(db, "envios", "entrega1"), (docSnap) => {
-                if (!docSnap.exists() || !map) return;
-                const data = docSnap.data();
+        mostrarEstado(
+          $("estadoNuevoRepartidor"),
+          mensaje,
+          "error"
+        );
+      } finally {
+        $("btnGuardarRepartidor").disabled = false;
+      }
+    }
 
-                // 1. Actualizar Marcador Camión
-                if (data.latitud && data.longitud) {
-                    const pos = { lat: data.latitud, lng: data.longitud };
-                    animarMarcador(markerCamion, pos);
-                    if (esPrimeraUbicacion) {
-                        map.panTo(pos);
-                        esPrimeraUbicacion = false;
-                    }
-                }
 
-                // 2. Geocodificar Destino
-                if (data.destino) {
-                    document.getElementById('subtitulo-destino').innerText = `Destino: ${data.destino}`;
-                    geocoder.geocode({ 'address': data.destino }, (results, status) => {
-                        if (status === 'OK' && markerDestino) {
-                            markerDestino.setPosition(results[0].geometry.location);
-                        }
-                    });
-                }
+    let historialPedidosDia = [];
 
-                // 3. Estados
-                const estadoTexto = document.getElementById('estado-texto');
-                const titulo = document.getElementById('titulo-principal');
+    function abrirModalHistorial() {
+      $("modalHistorial").classList.remove("oculto");
+      $("modalHistorial").setAttribute("aria-hidden", "false");
 
-                switch(data.estado) {
-                    case "entregado":
-                        estadoTexto.innerText = "ENTREGADO";
-                        estadoTexto.style.background = "#2e7d32";
-                        titulo.innerText = "¡Tu material ha llegado!";
-                        break;
-                    case "en_camino":
-                        estadoTexto.innerText = "EN CAMINO";
-                        estadoTexto.style.background = "#d32f2f";
-                        titulo.innerText = "Tu material está en camino";
-                        break;
-                    case "en_preparacion":
-                        estadoTexto.innerText = "PREPARANDO";
-                        estadoTexto.style.background = "#f9ab00";
-                        titulo.innerText = "Preparando tu material...";
-                        break;
-                    case "cancelado":
-                        estadoTexto.innerText = "CANCELADO";
-                        estadoTexto.style.background = "#666";
-                        titulo.innerText = "Pedido cancelado";
-                        break;
-                }
-            });
+      const hoy = new Date();
+      $("fechaHistorial").textContent = hoy.toLocaleDateString("es-MX", {
+        weekday: "long",
+        day: "2-digit",
+        month: "long",
+        year: "numeric"
+      });
+
+      cargarHistorialDelDia();
+    }
+
+    function cerrarModalHistorial() {
+      $("modalHistorial").classList.add("oculto");
+      $("modalHistorial").setAttribute("aria-hidden", "true");
+    }
+
+    function obtenerFechaDesdeTimestamp(valor) {
+      if (!valor) return null;
+
+      if (typeof valor.toDate === "function") {
+        return valor.toDate();
+      }
+
+      if (valor.seconds) {
+        return new Date(valor.seconds * 1000);
+      }
+
+      const fecha = new Date(valor);
+      return Number.isNaN(fecha.getTime()) ? null : fecha;
+    }
+
+    function esFechaDeHoy(fecha) {
+      if (!fecha) return false;
+
+      const hoy = new Date();
+
+      return (
+        fecha.getFullYear() === hoy.getFullYear() &&
+        fecha.getMonth() === hoy.getMonth() &&
+        fecha.getDate() === hoy.getDate()
+      );
+    }
+
+    function formatearHora(valor) {
+      const fecha = obtenerFechaDesdeTimestamp(valor);
+
+      if (!fecha) return "—";
+
+      return fecha.toLocaleTimeString("es-MX", {
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+
+    function formatearDuracion(pedido) {
+      const inicio = obtenerFechaDesdeTimestamp(
+        pedido.fechaInicio || pedido.fechaCreacion
+      );
+
+      const fin = obtenerFechaDesdeTimestamp(pedido.fechaEntrega);
+
+      if (!inicio || !fin) return "—";
+
+      const minutos = Math.max(
+        0,
+        Math.round((fin.getTime() - inicio.getTime()) / 60000)
+      );
+
+      if (minutos < 60) return `${minutos} min`;
+
+      const horas = Math.floor(minutos / 60);
+      const resto = minutos % 60;
+
+      return `${horas} h ${resto} min`;
+    }
+
+    function textoEstado(estado) {
+      const textos = {
+        asignado: "Asignado",
+        en_preparacion: "En preparación",
+        en_camino: "En camino",
+        entregado: "Entregado",
+        cancelado: "Cancelado"
+      };
+
+      return textos[estado] || estado || "Sin estado";
+    }
+
+    function claseEstado(estado) {
+      return [
+        "asignado",
+        "en_preparacion",
+        "en_camino",
+        "entregado",
+        "cancelado"
+      ].includes(estado)
+        ? `badge-${estado}`
+        : "badge-otro";
+    }
+
+    function actualizarResumenHistorial(pedidos) {
+      $("histTotal").textContent = pedidos.length;
+      $("histEntregados").textContent =
+        pedidos.filter((p) => p.estado === "entregado").length;
+      $("histEnCamino").textContent =
+        pedidos.filter((p) => p.estado === "en_camino").length;
+      $("histAsignados").textContent =
+        pedidos.filter((p) =>
+          ["asignado", "en_preparacion"].includes(p.estado)
+        ).length;
+      $("histCancelados").textContent =
+        pedidos.filter((p) => p.estado === "cancelado").length;
+    }
+
+    function renderizarHistorial() {
+      const busqueda = $("buscarHistorial").value
+        .trim()
+        .toLowerCase();
+
+      const estado = $("filtroEstadoHistorial").value;
+
+      const filtrados = historialPedidosDia.filter((pedido) => {
+        const coincideEstado = !estado || pedido.estado === estado;
+
+        const textoBusqueda = [
+          pedido.id,
+          pedido.cliente,
+          pedido.direccion,
+          pedido.direccionCorta,
+          pedido.repartidorNombre
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        const coincideBusqueda =
+          !busqueda || textoBusqueda.includes(busqueda);
+
+        return coincideEstado && coincideBusqueda;
+      });
+
+      actualizarResumenHistorial(historialPedidosDia);
+
+      if (!filtrados.length) {
+        $("tablaHistorialBody").innerHTML = `
+          <tr>
+            <td colspan="9" class="historial-vacio">
+              No hay pedidos que coincidan con los filtros.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      $("tablaHistorialBody").innerHTML = filtrados
+        .map((pedido) => `
+          <tr>
+            <td><strong>${formatearHora(pedido.fechaCreacion)}</strong></td>
+            <td>${escaparTexto(pedido.cliente || "Cliente")}</td>
+            <td>${escaparTexto(
+              pedido.direccionCorta ||
+              pedido.direccion ||
+              "Dirección pendiente"
+            )}</td>
+            <td>${escaparTexto(
+              pedido.repartidorNombre || "Sin asignar"
+            )}</td>
+            <td>
+              <span class="badge-estado ${claseEstado(pedido.estado)}">
+                ${escaparTexto(textoEstado(pedido.estado))}
+              </span>
+            </td>
+            <td>${formatearHora(pedido.fechaInicio)}</td>
+            <td>${formatearHora(pedido.fechaEntrega)}</td>
+            <td>${formatearDuracion(pedido)}</td>
+            <td title="${escaparTexto(pedido.id)}">
+              ${escaparTexto(pedido.id.slice(0, 8))}…
+            </td>
+          </tr>
+        `)
+        .join("");
+    }
+
+    async function cargarHistorialDelDia() {
+      mostrarEstado(
+        $("estadoHistorial"),
+        "Cargando pedidos del día..."
+      );
+
+      $("btnActualizarHistorial").disabled = true;
+
+      try {
+        const consulta = query(
+          collection(db, "pedidos"),
+          orderBy("fechaCreacion", "desc")
+        );
+
+        const snapshot = await getDocs(consulta);
+
+        historialPedidosDia = snapshot.docs
+          .map((documento) => ({
+            id: documento.id,
+            ...documento.data()
+          }))
+          .filter((pedido) =>
+            esFechaDeHoy(
+              obtenerFechaDesdeTimestamp(pedido.fechaCreacion)
+            )
+          );
+
+        renderizarHistorial();
+
+        mostrarEstado(
+          $("estadoHistorial"),
+          `Se encontraron ${historialPedidosDia.length} pedidos creados hoy.`,
+          "ok"
+        );
+      } catch (error) {
+        console.error("Error cargando historial:", error);
+
+        mostrarEstado(
+          $("estadoHistorial"),
+          "No fue posible cargar el historial. Revisa los permisos de la colección pedidos.",
+          "error"
+        );
+      } finally {
+        $("btnActualizarHistorial").disabled = false;
+      }
+    }
+
+    async function obtenerDespachadorAutorizado(usuario) {
+      const referencia = doc(db, "despachadores", usuario.uid);
+      const snapshot = await getDoc(referencia);
+
+      if (!snapshot.exists()) {
+        throw new Error(
+          "Tu cuenta existe en Authentication, pero no está registrada como despachador."
+        );
+      }
+
+      const despachador = {
+        uid: snapshot.id,
+        ...snapshot.data()
+      };
+
+      if (despachador.activo === false) {
+        throw new Error("La cuenta del despachador está desactivada.");
+      }
+
+      return despachador;
+    }
+
+    async function iniciarSesion() {
+      const email = escaparTexto($("loginEmail").value).toLowerCase();
+      const password = $("loginPassword").value;
+
+      if (!email || !password) {
+        mostrarEstado(
+          $("loginEstado"),
+          "Escribe correo y contraseña.",
+          "error"
+        );
+
+        return;
+      }
+
+      $("btnLogin").disabled = true;
+
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+        limpiarEstado($("loginEstado"));
+      } catch (error) {
+        console.error(error);
+
+        mostrarEstado(
+          $("loginEstado"),
+          "Correo o contraseña incorrectos.",
+          "error"
+        );
+      } finally {
+        $("btnLogin").disabled = false;
+      }
+    }
+
+    onAuthStateChanged(auth, async (usuario) => {
+      if (!usuario) {
+        $("loginPage").classList.remove("oculto");
+        $("appPage").classList.add("oculto");
+        return;
+      }
+
+      try {
+        const despachador = await obtenerDespachadorAutorizado(usuario);
+
+        $("loginPage").classList.add("oculto");
+        $("appPage").classList.remove("oculto");
+
+        const nombreDespachador =
+          despachador.nombre ||
+          usuario.email ||
+          usuario.uid;
+
+        $("usuarioActual").textContent =
+          `${nombreDespachador} · Despachador`;
+
+        await Promise.all([
+          cargarClientes(),
+          cargarRepartidores()
+        ]);
+
+        if (pedidoActualId) {
+          $("pedidoActual").innerHTML = `
+            <strong>Pedido guardado:</strong> ${pedidoActualId}<br>
+            Puedes cancelarlo desde este mostrador.
+          `;
+
+          $("btnCancelarPedido").disabled = false;
         }
-    </script>
+      } catch (error) {
+        console.error("Acceso de despachador rechazado:", error);
+
+        await signOut(auth);
+
+        mostrarEstado(
+          $("loginEstado"),
+          error.message || "No tienes permiso para usar el mostrador.",
+          "error"
+        );
+      }
+    });
+
+    calles.forEach((calle) => {
+      const opcion = document.createElement("option");
+      opcion.value = calle;
+      opcion.textContent = calle;
+      $("selectCalle").appendChild(opcion);
+    });
+
+    $("btnLogin").addEventListener("click", iniciarSesion);
+    $("loginPassword").addEventListener("keydown", (evento) => {
+      if (evento.key === "Enter") iniciarSesion();
+    });
+
+    $("btnNuevoRepartidor").addEventListener("click", abrirModalRepartidor);
+    $("btnCerrarModalRepartidor").addEventListener("click", cerrarModalRepartidor);
+    $("btnCancelarNuevoRepartidor").addEventListener("click", cerrarModalRepartidor);
+    $("btnGuardarRepartidor").addEventListener("click", crearRepartidor);
+
+    $("modalRepartidor").addEventListener("click", (evento) => {
+      if (evento.target === $("modalRepartidor")) cerrarModalRepartidor();
+    });
+
+    $("repartidorPasswordConfirmar").addEventListener("keydown", (evento) => {
+      if (evento.key === "Enter") crearRepartidor();
+    });
+
+    document.addEventListener("keydown", (evento) => {
+      if (evento.key === "Escape" && !$("modalRepartidor").classList.contains("oculto")) {
+        cerrarModalRepartidor();
+      }
+    });
+
+    $("btnHistorialDia").addEventListener("click", abrirModalHistorial);
+    $("btnCerrarModalHistorial").addEventListener("click", cerrarModalHistorial);
+    $("btnActualizarHistorial").addEventListener("click", cargarHistorialDelDia);
+    $("buscarHistorial").addEventListener("input", renderizarHistorial);
+    $("filtroEstadoHistorial").addEventListener("change", renderizarHistorial);
+
+    $("modalHistorial").addEventListener("click", (evento) => {
+      if (evento.target === $("modalHistorial")) cerrarModalHistorial();
+    });
+
+
+    document.addEventListener("keydown", (evento) => {
+      if (
+        evento.key === "Escape" &&
+        !$("modalHistorial").classList.contains("oculto")
+      ) {
+        cerrarModalHistorial();
+      }
+    });
+
+    $("btnLogout").addEventListener("click", () => signOut(auth));
+    $("selectCliente").addEventListener("change", cargarClienteSeleccionado);
+    $("btnVistaPrevia").addEventListener("click", ubicarDestino);
+    $("btnLimpiar").addEventListener("click", limpiarFormularioCliente);
+    $("btnGuardarCliente").addEventListener("click", guardarCambiosCliente);
+    $("btnNuevoCliente").addEventListener("click", guardarNuevoCliente);
+    $("btnEliminarCliente").addEventListener("click", eliminarClienteActual);
+    $("btnCrearPedido").addEventListener("click", crearPedido);
+    $("btnCancelarPedido").addEventListener("click", cancelarPedidoActual);
+
+    $("selectCalle").addEventListener("change", invalidarDestino);
+    $("numExterior").addEventListener("input", invalidarDestino);
+  </script>
+
+  <!-- Sustituye TU_API_KEY por tu clave restringida de Google Maps. -->
+  <script
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC6WVTfKxF7XrOIXFXW0Bsg1mC_edDVI-0&libraries=geocoding&language=es&region=MX"
+    defer>
+  </script>
 </body>
 </html>
