@@ -1,0 +1,20 @@
+FERRETERÍA GRANADOS - MOSTRADOR v8.3
+
+NOVEDAD:
+- Campo "Contenido del pedido / notas".
+- Máximo 1000 caracteres.
+- Se guarda en pedidos/{pedidoId} como notasPedido.
+- Se muestra en pedido actual, pedidos activos, búsqueda, ticket e impresión.
+- Las notas completas NO se publican en rastreoPublico por privacidad.
+- rastreoPublico solo guarda tieneNotas: true/false.
+
+PUBLICACIÓN:
+1. Sube index.html y mostrador.js a la misma carpeta de GitHub Pages.
+2. Conserva tu API key de Google Maps dentro de index.html.
+3. Haz Ctrl + F5.
+4. En consola debe aparecer:
+   Ferretería Granados Mostrador v8.3 cargado
+
+IMPORTANTE:
+La app del repartidor recibirá el campo notasPedido en Firestore, pero para
+mostrarlo en pantalla hay que agregarlo a HomeScreen.js y generar un APK nuevo.
