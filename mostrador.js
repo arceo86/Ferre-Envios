@@ -1,4 +1,4 @@
-console.info("Ferretería Granados Mostrador v8.3 cargado");
+console.info("Ferretería Granados Mostrador v8.9 cargado");
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 
@@ -97,7 +97,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
 
     let mapa = null;
     let geocoder = null;
-    let marcadorOrigen = null;
+    let tipoMapaActual =
+      localStorage.getItem("ferreteriaTipoMapa") ||
+      "roadmap";
     let marcadorDestino = null;
     let circuloZona = null;
 
@@ -108,6 +110,24 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
     let pedidosActivos = [];
     let cancelarEscuchaPedidosActivos = null;
     let pedidoTicketActual = null;
+
+    let modoPinManual = false;
+    let secuenciaGeocodificacion = 0;
+    let secuenciaGeocodificacionInversa = 0;
+
+    let cancelarEscuchaRepartidoresMapa = null;
+    let temporizadorRepartidoresMapa = null;
+    let infoRepartidorMapa = null;
+    const marcadoresRepartidores = new Map();
+
+    let cancelarEscuchaRastreoActivo = null;
+    let pedidoRastreoActivoId = "";
+    let repartidorRastreoActivoUID = "";
+    let datosRastreoActivo = null;
+    let marcadorDestinoRastreo = null;
+    let marcadorVehiculoRastreo = null;
+    let lineaRastreo = null;
+    let vistaRastreoAjustada = false;
 
     const $ = (id) => document.getElementById(id);
 
@@ -127,6 +147,200 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
 
     function escaparTexto(valor) {
       return String(valor ?? "").trim();
+    }
+
+    function normalizarTelefonoWhatsapp(
+      telefono
+    ) {
+      let numero = String(
+        telefono ?? ""
+      ).replace(/\D/g, "");
+
+      /*
+       * Convierte el formato mexicano antiguo 521
+       * al formato actual 52 + 10 dígitos.
+       */
+      if (
+        numero.startsWith("521") &&
+        numero.length === 13
+      ) {
+        numero = `52${numero.slice(3)}`;
+      }
+
+      if (numero.length === 10) {
+        numero = `52${numero}`;
+      }
+
+      if (
+        numero.length < 12 ||
+        numero.length > 15
+      ) {
+        return "";
+      }
+
+      return numero;
+    }
+
+    function telefonoWhatsappRepartidor(
+      repartidor
+    ) {
+      return normalizarTelefonoWhatsapp(
+        repartidor?.telefonoWhatsapp ||
+        repartidor?.telefono ||
+        ""
+      );
+    }
+
+    function obtenerRepartidorDelPedido(
+      pedido
+    ) {
+      return listaRepartidores.find(
+        (repartidor) =>
+          repartidor.uid ===
+          pedido?.repartidorUID
+      ) || null;
+    }
+
+    function enlaceNavegacionPedido(
+      pedido
+    ) {
+      const latitud = Number(
+        pedido?.destino?.latitud ??
+        pedido?.latitud
+      );
+
+      const longitud = Number(
+        pedido?.destino?.longitud ??
+        pedido?.longitud
+      );
+
+      if (
+        !Number.isFinite(latitud) ||
+        !Number.isFinite(longitud)
+      ) {
+        return "";
+      }
+
+      return (
+        "https://www.google.com/maps/dir/" +
+        "?api=1" +
+        `&destination=${latitud},${longitud}` +
+        "&travelmode=driving"
+      );
+    }
+
+    function crearMensajeRepartidor(
+      pedido,
+      repartidor
+    ) {
+      const nombre =
+        repartidor?.nombre ||
+        pedido?.repartidorNombre ||
+        "repartidor";
+
+      const direccion =
+        pedido?.direccionCorta ||
+        pedido?.direccion ||
+        "Dirección pendiente";
+
+      const notas =
+        pedido?.notasPedido?.trim() ||
+        "Sin notas adicionales";
+
+      const enlaceMapa =
+        enlaceNavegacionPedido(pedido);
+
+      const lineas = [
+        "🚚 *NUEVO PEDIDO ASIGNADO*",
+        "",
+        `Hola ${nombre}, tienes un nuevo pedido.`,
+        "",
+        `*Cliente:* ${pedido?.cliente || "Cliente"}`,
+        `*Dirección:* ${direccion}`,
+        "",
+        "*Contenido / notas:*",
+        notas,
+        "",
+        `*Pedido:* ${pedido?.id || "Pendiente"}`,
+        "",
+        "Abre la aplicación de repartidor para iniciar el viaje."
+      ];
+
+      if (enlaceMapa) {
+        lineas.push(
+          "",
+          "📍 *Abrir navegación:*",
+          enlaceMapa
+        );
+      }
+
+      return lineas.join("\n");
+    }
+
+    function crearEnlaceWhatsappRepartidor(
+      pedido
+    ) {
+      const repartidor =
+        obtenerRepartidorDelPedido(pedido);
+
+      const telefono =
+        telefonoWhatsappRepartidor(
+          repartidor
+        ) ||
+        normalizarTelefonoWhatsapp(
+          pedido?.repartidorTelefonoWhatsapp ||
+          pedido?.repartidorTelefono ||
+          ""
+        );
+
+      if (!telefono) {
+        return "";
+      }
+
+      const mensaje =
+        crearMensajeRepartidor(
+          pedido,
+          repartidor
+        );
+
+      return (
+        `https://wa.me/${telefono}` +
+        `?text=${encodeURIComponent(mensaje)}`
+      );
+    }
+
+    function avisarRepartidorWhatsapp(
+      pedidoId
+    ) {
+      const pedido =
+        pedidosActivos.find(
+          (item) => item.id === pedidoId
+        );
+
+      if (!pedido) {
+        alert(
+          "El pedido ya no está disponible."
+        );
+        return;
+      }
+
+      const enlace =
+        crearEnlaceWhatsappRepartidor(
+          pedido
+        );
+
+      if (!enlace) {
+        alert(
+          "Este repartidor no tiene un número de WhatsApp válido registrado. Agrega 10 dígitos en su perfil de Firestore."
+        );
+        return;
+      }
+
+      window.open(
+        enlace,
+        "_blank",
+        "noopener,noreferrer"
+      );
     }
 
     function obtenerDireccionCorta() {
@@ -185,6 +399,59 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
       );
     }
 
+    function actualizarEstadoPin(
+      tipo,
+      mensaje
+    ) {
+      const elemento = $("pinManualEstado");
+
+      elemento.classList.remove(
+        "activo",
+        "confirmado",
+        "error"
+      );
+
+      if (tipo) {
+        elemento.classList.add(tipo);
+      }
+
+      elemento.innerHTML = mensaje;
+    }
+
+    function activarModoPinManual() {
+      modoPinManual = true;
+      document.body.classList.add("modo-pin-manual");
+      $("chipPinManual").classList.add("visible");
+      $("btnModoPin").textContent = "✋ Cancelar selección";
+
+      actualizarEstadoPin(
+        "activo",
+        "<strong>Selección manual activa.</strong> Toca el punto exacto en el mapa. Después podrás arrastrar el marcador para afinarlo."
+      );
+    }
+
+    function desactivarModoPinManual() {
+      modoPinManual = false;
+      document.body.classList.remove("modo-pin-manual");
+      $("chipPinManual").classList.remove("visible");
+      $("btnModoPin").textContent = "📌 Elegir en el mapa";
+    }
+
+    function alternarModoPinManual() {
+      if (modoPinManual) {
+        desactivarModoPinManual();
+
+        actualizarEstadoPin(
+          "",
+          "Selección manual cancelada. Puedes buscar la dirección o volver a elegir el punto en el mapa."
+        );
+
+        return;
+      }
+
+      activarModoPinManual();
+    }
+
     function evaluarDestino(destino) {
       const distancia = calcularDistanciaMetros(
         CONFIG.empresa,
@@ -192,14 +459,27 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
       );
 
       destinoActual = {
-        ...destino,
-        distanciaMetros: Math.round(distancia)
+        lat: destino.lat,
+        lng: destino.lng,
+        distanciaMetros: Math.round(distancia),
+        metodoUbicacion:
+          destino.metodoUbicacion ||
+          destinoActual?.metodoUbicacion ||
+          "desconocido",
+        direccionMapa:
+          destino.direccionMapa ??
+          destinoActual?.direccionMapa ??
+          ""
       };
 
       $("chipDistancia").innerHTML = `
         <strong>Destino</strong>
         ${formatearDistancia(distancia)} desde la ferretería
       `;
+
+      const coordenadas =
+        `${destinoActual.lat.toFixed(6)}, ` +
+        `${destinoActual.lng.toFixed(6)}`;
 
       if (distancia <= CONFIG.zona.radioHabitualMetros) {
         mostrarEstado(
@@ -209,6 +489,18 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
         );
 
         $("btnCrearPedido").disabled = false;
+
+        actualizarEstadoPin(
+          "confirmado",
+          `<strong>Destino confirmado.</strong><br>` +
+          `Coordenadas: ${coordenadas}` +
+          (
+            destinoActual.direccionMapa
+              ? `<br>Referencia de Google: ${destinoActual.direccionMapa}`
+              : ""
+          )
+        );
+
         return;
       }
 
@@ -220,50 +512,153 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
         );
 
         $("btnCrearPedido").disabled = false;
+
+        actualizarEstadoPin(
+          "confirmado",
+          `<strong>Destino confirmado fuera de la zona habitual.</strong><br>` +
+          `Coordenadas: ${coordenadas}` +
+          (
+            destinoActual.direccionMapa
+              ? `<br>Referencia de Google: ${destinoActual.direccionMapa}`
+              : ""
+          )
+        );
+
         return;
       }
 
       mostrarEstado(
         $("zonaEstado"),
-        `Atención: Google ubicó el destino a ${formatearDistancia(distancia)}. Corrige el marcador antes de crear el pedido.`,
+        `Atención: el destino está a ${formatearDistancia(distancia)}. Corrige el marcador antes de crear el pedido.`,
         "error"
       );
 
       $("btnCrearPedido").disabled = true;
+
+      actualizarEstadoPin(
+        "error",
+        `<strong>El punto está fuera del radio permitido.</strong><br>` +
+        `Coordenadas: ${coordenadas}`
+      );
     }
 
-    function colocarDestino(posicion, centrar = true) {
+    async function obtenerDireccionDelPin(
+      posicion,
+      secuencia
+    ) {
+      try {
+        const respuesta = await geocoder.geocode({
+          location: posicion
+        });
+
+        if (
+          secuencia !== secuenciaGeocodificacionInversa ||
+          !destinoActual
+        ) {
+          return;
+        }
+
+        const direccionMapa =
+          respuesta.results?.[0]?.formatted_address || "";
+
+        destinoActual.direccionMapa = direccionMapa;
+
+        evaluarDestino({
+          ...destinoActual,
+          direccionMapa
+        });
+      } catch (error) {
+        console.warn(
+          "No fue posible obtener la referencia del pin:",
+          error
+        );
+      }
+    }
+
+    function colocarDestino(
+      posicion,
+      centrar = true,
+      metodoUbicacion = "geocodificada",
+      direccionMapa = ""
+    ) {
       if (!marcadorDestino) {
         marcadorDestino = new google.maps.Marker({
           map: mapa,
           position: posicion,
           title: "Destino de entrega",
-          draggable: true
+          draggable: true,
+          animation: google.maps.Animation.DROP
+        });
+
+        marcadorDestino.addListener("dragstart", () => {
+          secuenciaGeocodificacionInversa += 1;
+
+          actualizarEstadoPin(
+            "activo",
+            "<strong>Ajustando destino.</strong> Suelta el marcador en el punto exacto."
+          );
         });
 
         marcadorDestino.addListener("dragend", () => {
-          const posicionNueva = marcadorDestino.getPosition();
+          const posicionNueva =
+            marcadorDestino.getPosition();
 
-          evaluarDestino({
+          const destino = {
             lat: posicionNueva.lat(),
-            lng: posicionNueva.lng()
-          });
+            lng: posicionNueva.lng(),
+            metodoUbicacion: "manual",
+            direccionMapa: ""
+          };
+
+          evaluarDestino(destino);
+
+          const secuencia =
+            ++secuenciaGeocodificacionInversa;
+
+          obtenerDireccionDelPin(
+            {
+              lat: destino.lat,
+              lng: destino.lng
+            },
+            secuencia
+          );
         });
       } else {
         marcadorDestino.setPosition(posicion);
+        marcadorDestino.setMap(mapa);
       }
 
       if (centrar) {
-        const bounds = new google.maps.LatLngBounds();
+        const bounds =
+          new google.maps.LatLngBounds();
+
         bounds.extend(CONFIG.empresa);
         bounds.extend(posicion);
+
         mapa.fitBounds(bounds, 80);
       }
 
-      evaluarDestino(posicion);
+      evaluarDestino({
+        ...posicion,
+        metodoUbicacion,
+        direccionMapa
+      });
+
+      const secuencia =
+        ++secuenciaGeocodificacionInversa;
+
+      obtenerDireccionDelPin(
+        posicion,
+        secuencia
+      );
     }
 
     async function ubicarDestino() {
+      const secuenciaActual =
+        ++secuenciaGeocodificacion;
+
+      desactivarModoPinManual();
+
       try {
         $("btnVistaPrevia").disabled = true;
         $("btnCrearPedido").disabled = true;
@@ -273,7 +668,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
           "Buscando la dirección en Google Maps..."
         );
 
-        const direccionCompleta = obtenerDireccionCompleta();
+        actualizarEstadoPin(
+          "activo",
+          "<strong>Buscando dirección.</strong> Si el resultado no coincide, usa “Elegir en el mapa”."
+        );
+
+        const direccionCompleta =
+          obtenerDireccionCompleta();
 
         const respuesta = await geocoder.geocode({
           address: direccionCompleta,
@@ -284,31 +685,110 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
           }
         });
 
-        if (!respuesta.results?.length) {
-          throw new Error("Google Maps no encontró la dirección.");
+        if (
+          secuenciaActual !==
+          secuenciaGeocodificacion
+        ) {
+          return;
         }
 
-        const resultado = respuesta.results[0];
-        const ubicacion = resultado.geometry.location;
+        if (!respuesta.results?.length) {
+          throw new Error(
+            "Google Maps no encontró la dirección. Selecciona el punto manualmente."
+          );
+        }
 
-        colocarDestino({
-          lat: ubicacion.lat(),
-          lng: ubicacion.lng()
-        });
+        const resultado =
+          respuesta.results[0];
+
+        const ubicacion =
+          resultado.geometry.location;
+
+        colocarDestino(
+          {
+            lat: ubicacion.lat(),
+            lng: ubicacion.lng()
+          },
+          true,
+          "geocodificada",
+          resultado.formatted_address || ""
+        );
       } catch (error) {
         console.error(error);
+
+        if (
+          secuenciaActual !==
+          secuenciaGeocodificacion
+        ) {
+          return;
+        }
 
         destinoActual = null;
         $("btnCrearPedido").disabled = true;
 
         mostrarEstado(
           $("zonaEstado"),
-          error.message || "No fue posible ubicar el destino.",
+          error.message ||
+            "No fue posible ubicar el destino.",
           "error"
         );
+
+        actualizarEstadoPin(
+          "error",
+          "<strong>No se pudo encontrar correctamente la dirección.</strong> Pulsa “Elegir en el mapa” y toca el domicilio exacto."
+        );
       } finally {
-        $("btnVistaPrevia").disabled = false;
+        if (
+          secuenciaActual ===
+          secuenciaGeocodificacion
+        ) {
+          $("btnVistaPrevia").disabled = false;
+        }
       }
+    }
+
+    function actualizarBotonesTipoMapa() {
+      const esSatelite =
+        tipoMapaActual === "hybrid" ||
+        tipoMapaActual === "satellite";
+
+      $("btnVistaMapa").classList.toggle(
+        "activo",
+        !esSatelite
+      );
+
+      $("btnVistaSatelite").classList.toggle(
+        "activo",
+        esSatelite
+      );
+
+      $("btnVistaMapa").setAttribute(
+        "aria-pressed",
+        String(!esSatelite)
+      );
+
+      $("btnVistaSatelite").setAttribute(
+        "aria-pressed",
+        String(esSatelite)
+      );
+    }
+
+    function cambiarTipoMapa(tipo) {
+      if (!mapa) return;
+
+      tipoMapaActual =
+        tipo === "satelite"
+          ? "hybrid"
+          : "roadmap";
+
+      mapa.setMapTypeId(tipoMapaActual);
+
+      localStorage.setItem(
+        "ferreteriaTipoMapa",
+        tipoMapaActual
+      );
+
+      actualizarBotonesTipoMapa();
     }
 
     window.addEventListener("load", () => {
@@ -317,24 +797,37 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
       mapa = new google.maps.Map($("map"), {
         center: centro,
         zoom: 16,
+        mapTypeId: tipoMapaActual,
         mapTypeControl: false,
         streetViewControl: false,
         fullscreenControl: true
       });
 
-      geocoder = new google.maps.Geocoder();
+      actualizarBotonesTipoMapa();
 
-      marcadorOrigen = new google.maps.Marker({
-        map: mapa,
-        position: centro,
-        title: CONFIG.empresa.nombre,
-        icon: {
-          url: CONFIG.pinVehiculoUrl,
-          scaledSize: new google.maps.Size(84, 56),
-          anchor: new google.maps.Point(42, 52)
-        },
-        zIndex: 10
+      geocoder = new google.maps.Geocoder();
+      infoRepartidorMapa = new google.maps.InfoWindow();
+
+      mapa.addListener("click", (evento) => {
+        if (!modoPinManual) return;
+
+        const posicion = {
+          lat: evento.latLng.lat(),
+          lng: evento.latLng.lng()
+        };
+
+        colocarDestino(
+          posicion,
+          false,
+          "manual",
+          ""
+        );
+
+        mapa.panTo(posicion);
+        desactivarModoPinManual();
       });
+
+      actualizarRepartidoresEnMapa();
 
       circuloZona = new google.maps.Circle({
         map: mapa,
@@ -348,6 +841,855 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
         clickable: false
       });
     });
+
+
+    function fechaRepartidor(valor) {
+      if (!valor) return null;
+
+      if (typeof valor.toDate === "function") {
+        return valor.toDate();
+      }
+
+      if (valor.seconds) {
+        return new Date(valor.seconds * 1000);
+      }
+
+      const fecha = new Date(valor);
+
+      return Number.isNaN(fecha.getTime())
+        ? null
+        : fecha;
+    }
+
+    function tiempoDesde(fecha) {
+      if (!fecha) return "sin hora";
+
+      const segundos = Math.max(
+        0,
+        Math.round((Date.now() - fecha.getTime()) / 1000)
+      );
+
+      if (segundos < 60) return "ahora";
+      if (segundos < 3600) {
+        return `hace ${Math.floor(segundos / 60)} min`;
+      }
+
+      if (segundos < 86400) {
+        return `hace ${Math.floor(segundos / 3600)} h`;
+      }
+
+      return fecha.toLocaleDateString("es-MX");
+    }
+
+    function coordenadasRepartidor(repartidor) {
+      const latitud = Number(
+        repartidor.ubicacion?.latitud
+      );
+
+      const longitud = Number(
+        repartidor.ubicacion?.longitud
+      );
+
+      if (
+        !Number.isFinite(latitud) ||
+        !Number.isFinite(longitud)
+      ) {
+        return null;
+      }
+
+      return {
+        lat: latitud,
+        lng: longitud
+      };
+    }
+
+    function repartidorVisibleEnMapa(repartidor) {
+      const posicion =
+        coordenadasRepartidor(repartidor);
+
+      if (!posicion) return false;
+
+      /*
+       * "activo" en este mapa significa que el teléfono
+       * envió una ubicación recientemente. No basta con
+       * que la cuenta del repartidor exista o conserve
+       * una ubicación antigua en Firestore.
+       */
+      if (repartidor.activo === false) {
+        return false;
+      }
+
+      const ultimaFecha = fechaRepartidor(
+        repartidor.ultimaActualizacion ||
+        repartidor.ultimaConexion
+      );
+
+      if (!ultimaFecha) return false;
+
+      const minutosSinActualizar =
+        (Date.now() - ultimaFecha.getTime()) /
+        60000;
+
+      return (
+        minutosSinActualizar >= 0 &&
+        minutosSinActualizar <= 5
+      );
+    }
+
+    function contenidoInfoRepartidor(repartidor) {
+      const nombre = nombreVisibleRepartidor(repartidor);
+      const ultimaFecha = fechaRepartidor(
+        repartidor.ultimaActualizacion ||
+        repartidor.ultimaConexion
+      );
+
+      const estado =
+        repartidor.estado || "sin estado";
+
+      const pedido =
+        repartidor.pedidoActivoId || "ninguno";
+
+      return `
+        <div style="min-width:210px;padding:3px 1px">
+          <strong style="font-size:14px">
+            ${nombre}
+          </strong>
+          <div style="margin-top:6px;font-size:12px">
+            <b>Estado:</b> ${estado}
+          </div>
+          <div style="margin-top:4px;font-size:12px">
+            <b>Pedido activo:</b> ${pedido}
+          </div>
+          <div style="margin-top:4px;font-size:12px">
+            <b>Última ubicación:</b> ${tiempoDesde(ultimaFecha)}
+          </div>
+        </div>
+      `;
+    }
+
+    function actualizarRepartidoresEnMapa() {
+      if (!mapa) return;
+
+      const visibles = listaRepartidores.filter(
+        repartidorVisibleEnMapa
+      );
+
+      const uidsVisibles = new Set(
+        visibles.map((repartidor) => repartidor.uid)
+      );
+
+      for (const [uid, marcador] of marcadoresRepartidores) {
+        if (!uidsVisibles.has(uid)) {
+          marcador.setMap(null);
+          marcadoresRepartidores.delete(uid);
+        }
+      }
+
+      visibles.forEach((repartidor) => {
+        const posicion = coordenadasRepartidor(repartidor);
+
+        if (!posicion) return;
+
+        let marcador =
+          marcadoresRepartidores.get(repartidor.uid);
+
+        if (!marcador) {
+          marcador = new google.maps.Marker({
+            map: mapa,
+            position: posicion,
+            title: nombreVisibleRepartidor(repartidor),
+            optimized: false,
+            icon: {
+              url: CONFIG.pinVehiculoUrl,
+              scaledSize: new google.maps.Size(56, 37),
+
+              /*
+               * El punto GPS se coloca aproximadamente
+               * debajo del centro de las ruedas.
+               */
+              anchor: new google.maps.Point(28, 30)
+            },
+            zIndex: 40
+          });
+
+          marcador.addListener("click", () => {
+            const perfilActual =
+              listaRepartidores.find(
+                (item) => item.uid === repartidor.uid
+              ) || repartidor;
+
+            infoRepartidorMapa.setContent(
+              contenidoInfoRepartidor(perfilActual)
+            );
+
+            infoRepartidorMapa.open({
+              map: mapa,
+              anchor: marcador
+            });
+          });
+
+          marcadoresRepartidores.set(
+            repartidor.uid,
+            marcador
+          );
+        } else {
+          marcador.setPosition(posicion);
+          marcador.setTitle(
+            nombreVisibleRepartidor(repartidor)
+          );
+        }
+
+        marcador.setVisible(
+          repartidor.uid !== repartidorRastreoActivoUID
+        );
+      });
+
+      renderizarListaRepartidoresMapa(visibles);
+    }
+
+    function renderizarListaRepartidoresMapa(repartidores) {
+      $("contadorRepartidoresMapa").textContent =
+        repartidores.length;
+
+      const contenedor = $("listaRepartidoresMapa");
+
+      if (!repartidores.length) {
+        contenedor.innerHTML = `
+          <div class="repartidores-vacio">
+            No hay repartidores con ubicación activa.
+          </div>
+        `;
+        return;
+      }
+
+      contenedor.innerHTML = repartidores
+        .sort((a, b) => {
+          const entregandoA =
+            a.estado === "entregando" ? 0 : 1;
+          const entregandoB =
+            b.estado === "entregando" ? 0 : 1;
+
+          return entregandoA - entregandoB;
+        })
+        .map((repartidor) => {
+          const ultimaFecha = fechaRepartidor(
+            repartidor.ultimaActualizacion ||
+            repartidor.ultimaConexion
+          );
+
+          const entregando =
+            repartidor.estado === "entregando";
+
+          return `
+            <div
+              class="repartidor-mapa-item"
+              data-repartidor-mapa="${repartidor.uid}"
+              title="Centrar en ${nombreVisibleRepartidor(repartidor)}"
+            >
+              <span class="repartidor-mapa-punto ${
+                entregando ? "entregando" : ""
+              }"></span>
+
+              <div class="repartidor-mapa-info">
+                <strong>${nombreVisibleRepartidor(repartidor)}</strong>
+                <span>
+                  ${repartidor.estado || "sin estado"}
+                  ${
+                    repartidor.pedidoActivoId
+                      ? ` · pedido ${repartidor.pedidoActivoId.slice(0, 8)}…`
+                      : ""
+                  }
+                </span>
+              </div>
+
+              <span class="repartidor-mapa-hora">
+                ${tiempoDesde(ultimaFecha)}
+              </span>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    function centrarRepartidoresActivos() {
+      if (!mapa) return;
+
+      const marcadores = Array.from(
+        marcadoresRepartidores.values()
+      ).filter(
+        (marcador) =>
+          marcador.getMap() &&
+          marcador.getVisible()
+      );
+
+      if (!marcadores.length) {
+        alert(
+          "No hay repartidores activos para mostrar."
+        );
+        return;
+      }
+
+      if (marcadores.length === 1) {
+        const posicion =
+          marcadores[0].getPosition();
+
+        mapa.panTo(posicion);
+        mapa.setZoom(17);
+        return;
+      }
+
+      const bounds =
+        new google.maps.LatLngBounds();
+
+      marcadores.forEach((marcador) => {
+        const posicion =
+          marcador.getPosition();
+
+        if (posicion) {
+          bounds.extend(posicion);
+        }
+      });
+
+      mapa.fitBounds(bounds, 80);
+    }
+
+    function iniciarEscuchaRepartidoresMapa() {
+      if (cancelarEscuchaRepartidoresMapa) {
+        cancelarEscuchaRepartidoresMapa();
+      }
+
+      if (temporizadorRepartidoresMapa) {
+        clearInterval(
+          temporizadorRepartidoresMapa
+        );
+      }
+
+      /*
+       * Firestore no emite un snapshot solo porque
+       * transcurrió el tiempo. Este temporizador vuelve
+       * a evaluar cada 30 segundos y elimina del mapa a
+       * quien ya no actualizó en los últimos 5 minutos.
+       */
+      temporizadorRepartidoresMapa =
+        window.setInterval(() => {
+          actualizarRepartidoresEnMapa();
+        }, 30000);
+
+      cancelarEscuchaRepartidoresMapa = onSnapshot(
+        collection(db, "repartidores"),
+        (snapshot) => {
+          listaRepartidores = snapshot.docs
+            .map((documento) => ({
+              uid: documento.id,
+              ...documento.data()
+            }))
+            .sort((a, b) =>
+              nombreVisibleRepartidor(a).localeCompare(
+                nombreVisibleRepartidor(b),
+                "es"
+              )
+            );
+
+          renderizarSelectorRepartidores();
+          actualizarRepartidoresEnMapa();
+
+          /*
+           * Los pedidos activos usan la misma lista
+           * para saber si un repartidor está ocupado.
+           */
+          renderizarPedidosActivos();
+
+          if (
+            pedidoRastreoActivoId &&
+            !pedidosActivos.some(
+              (pedido) =>
+                pedido.id === pedidoRastreoActivoId
+            )
+          ) {
+            $("rastreoActivoMensaje").textContent =
+              "Este pedido dejó de estar activo. Puedes cerrar el rastreo.";
+          }
+        },
+        (error) => {
+          console.error(
+            "Error escuchando ubicaciones de repartidores:",
+            error
+          );
+        }
+      );
+    }
+
+
+    function coordenadasDesdeRastreo(
+      datos,
+      tipo
+    ) {
+      const origen =
+        tipo === "destino"
+          ? datos?.destino
+          : datos?.ubicacionRepartidor;
+
+      const latitud = Number(
+        origen?.latitud ??
+        origen?.latitude
+      );
+
+      const longitud = Number(
+        origen?.longitud ??
+        origen?.longitude
+      );
+
+      if (
+        !Number.isFinite(latitud) ||
+        !Number.isFinite(longitud)
+      ) {
+        return null;
+      }
+
+      return {
+        lat: latitud,
+        lng: longitud
+      };
+    }
+
+    function actualizarMarcadorRastreo(
+      tipo,
+      posicion
+    ) {
+      if (!mapa || !posicion) return;
+
+      if (tipo === "destino") {
+        if (!marcadorDestinoRastreo) {
+          marcadorDestinoRastreo =
+            new google.maps.Marker({
+              map: mapa,
+              position: posicion,
+              title: "Destino del pedido",
+              icon:
+                "https://maps.google.com/mapfiles/ms/icons/red-dot.png",
+              zIndex: 70
+            });
+        } else {
+          marcadorDestinoRastreo.setPosition(posicion);
+          marcadorDestinoRastreo.setMap(mapa);
+        }
+
+        return;
+      }
+
+      if (!marcadorVehiculoRastreo) {
+        marcadorVehiculoRastreo =
+          new google.maps.Marker({
+            map: mapa,
+            position: posicion,
+            title: "Repartidor en ruta",
+            optimized: false,
+            icon: {
+              url: CONFIG.pinVehiculoUrl,
+              scaledSize:
+                new google.maps.Size(68, 45),
+              anchor:
+                new google.maps.Point(34, 37)
+            },
+            zIndex: 90
+          });
+      } else {
+        marcadorVehiculoRastreo.setPosition(posicion);
+        marcadorVehiculoRastreo.setMap(mapa);
+      }
+    }
+
+    function actualizarLineaRastreo(
+      vehiculo,
+      destino
+    ) {
+      if (!mapa) return;
+
+      if (!vehiculo || !destino) {
+        lineaRastreo?.setMap(null);
+        return;
+      }
+
+      const ruta = [vehiculo, destino];
+
+      if (!lineaRastreo) {
+        lineaRastreo =
+          new google.maps.Polyline({
+            map: mapa,
+            path: ruta,
+            geodesic: true,
+            strokeColor: "#2563EB",
+            strokeOpacity: 0.78,
+            strokeWeight: 4,
+            zIndex: 60
+          });
+      } else {
+        lineaRastreo.setPath(ruta);
+        lineaRastreo.setMap(mapa);
+      }
+    }
+
+    function centrarRastreoActivo() {
+      if (!mapa || !datosRastreoActivo) {
+        return;
+      }
+
+      const destino = coordenadasDesdeRastreo(
+        datosRastreoActivo,
+        "destino"
+      );
+
+      const vehiculo = coordenadasDesdeRastreo(
+        datosRastreoActivo,
+        "vehiculo"
+      );
+
+      const puntos = [
+        CONFIG.empresa,
+        destino,
+        vehiculo
+      ].filter(Boolean);
+
+      if (!puntos.length) return;
+
+      const bounds =
+        new google.maps.LatLngBounds();
+
+      puntos.forEach((punto) => {
+        bounds.extend(punto);
+      });
+
+      mapa.fitBounds(bounds, {
+        top: 80,
+        right: 430,
+        bottom: 90,
+        left: 70
+      });
+    }
+
+    function actualizarPanelRastreoActivo(
+      datos
+    ) {
+      datosRastreoActivo = datos;
+
+      const pedidoPrivado =
+        pedidosActivos.find(
+          (pedido) =>
+            pedido.id === pedidoRastreoActivoId
+        ) || {};
+
+      const cliente =
+        datos.cliente ||
+        pedidoPrivado.cliente ||
+        "Cliente";
+
+      const direccion =
+        datos.direccionCorta ||
+        datos.direccion ||
+        pedidoPrivado.direccionCorta ||
+        pedidoPrivado.direccion ||
+        "Dirección pendiente";
+
+      const repartidorUID =
+        datos.repartidorUID ||
+        pedidoPrivado.repartidorUID ||
+        "";
+
+      if (
+        repartidorRastreoActivoUID &&
+        repartidorRastreoActivoUID !== repartidorUID
+      ) {
+        marcadoresRepartidores
+          .get(repartidorRastreoActivoUID)
+          ?.setVisible(true);
+      }
+
+      repartidorRastreoActivoUID =
+        repartidorUID;
+
+      if (repartidorUID) {
+        marcadoresRepartidores
+          .get(repartidorUID)
+          ?.setVisible(false);
+      }
+
+      const repartidor =
+        datos.repartidorNombre ||
+        pedidoPrivado.repartidorNombre ||
+        "Sin asignar";
+
+      const estado =
+        datos.estado ||
+        pedidoPrivado.estado ||
+        "asignado";
+
+      const destino =
+        coordenadasDesdeRastreo(
+          datos,
+          "destino"
+        ) ||
+        (
+          Number.isFinite(
+            Number(pedidoPrivado.destino?.latitud)
+          ) &&
+          Number.isFinite(
+            Number(pedidoPrivado.destino?.longitud)
+          )
+            ? {
+                lat:
+                  Number(
+                    pedidoPrivado.destino.latitud
+                  ),
+                lng:
+                  Number(
+                    pedidoPrivado.destino.longitud
+                  )
+              }
+            : null
+        );
+
+      const vehiculo =
+        coordenadasDesdeRastreo(
+          datos,
+          "vehiculo"
+        );
+
+      $("rastreoActivoCliente").textContent =
+        cliente;
+
+      $("rastreoActivoDireccion").textContent =
+        direccion;
+
+      $("rastreoActivoRepartidor").textContent =
+        repartidor;
+
+      $("rastreoActivoId").textContent =
+        pedidoRastreoActivoId;
+
+      const badge =
+        $("rastreoActivoEstado");
+
+      badge.className =
+        `badge-estado ${claseEstado(estado)}`;
+
+      badge.textContent =
+        textoEstado(estado);
+
+      $("rastreoActivoActualizacion").textContent =
+        datos.ultimaActualizacion
+          ? `Actualizado: ${formatearHora(
+              datos.ultimaActualizacion
+            )}`
+          : "Sin actualización";
+
+      if (destino) {
+        actualizarMarcadorRastreo(
+          "destino",
+          destino
+        );
+      } else {
+        marcadorDestinoRastreo?.setMap(null);
+      }
+
+      if (vehiculo) {
+        actualizarMarcadorRastreo(
+          "vehiculo",
+          vehiculo
+        );
+
+        const distancia =
+          destino
+            ? calcularDistanciaMetros(
+                vehiculo,
+                destino
+              )
+            : NaN;
+
+        $("rastreoActivoDistancia").textContent =
+          formatearDistancia(distancia);
+
+        $("rastreoActivoMensaje").textContent =
+          estado === "en_camino"
+            ? "El repartidor está enviando su ubicación en tiempo real."
+            : "Ubicación del repartidor disponible.";
+      } else {
+        marcadorVehiculoRastreo?.setMap(null);
+
+        $("rastreoActivoDistancia").textContent =
+          "Esperando GPS";
+
+        $("rastreoActivoMensaje").textContent =
+          estado === "asignado" ||
+          estado === "en_preparacion"
+            ? "El viaje todavía no inicia. El mapa mostrará la camioneta cuando el repartidor pulse INICIAR VIAJE."
+            : "Esperando una nueva ubicación del repartidor.";
+      }
+
+      actualizarLineaRastreo(
+        vehiculo,
+        destino
+      );
+
+      if (
+        !vistaRastreoAjustada &&
+        destino
+      ) {
+        vistaRastreoAjustada = true;
+
+        window.setTimeout(
+          centrarRastreoActivo,
+          120
+        );
+      }
+    }
+
+    function limpiarElementosRastreoActivo() {
+      marcadorDestinoRastreo?.setMap(null);
+      marcadorVehiculoRastreo?.setMap(null);
+      lineaRastreo?.setMap(null);
+
+      marcadorDestinoRastreo = null;
+      marcadorVehiculoRastreo = null;
+      lineaRastreo = null;
+    }
+
+    function detenerRastreoActivo() {
+      cancelarEscuchaRastreoActivo?.();
+      cancelarEscuchaRastreoActivo = null;
+
+      if (repartidorRastreoActivoUID) {
+        marcadoresRepartidores
+          .get(repartidorRastreoActivoUID)
+          ?.setVisible(true);
+      }
+
+      pedidoRastreoActivoId = "";
+      repartidorRastreoActivoUID = "";
+      datosRastreoActivo = null;
+      vistaRastreoAjustada = false;
+
+      limpiarElementosRastreoActivo();
+
+      $("panelRastreoActivo")
+        .classList.add("oculto");
+
+      $("panelRepartidoresMapa")
+        .classList.remove("oculto");
+
+      document.body.classList.remove(
+        "rastreo-en-curso"
+      );
+
+      actualizarRepartidoresEnMapa();
+    }
+
+    function iniciarRastreoActivo(
+      pedidoId
+    ) {
+      const pedido =
+        pedidosActivos.find(
+          (item) => item.id === pedidoId
+        );
+
+      cancelarEscuchaRastreoActivo?.();
+      limpiarElementosRastreoActivo();
+
+      pedidoRastreoActivoId =
+        pedidoId;
+
+      repartidorRastreoActivoUID =
+        pedido?.repartidorUID || "";
+
+      datosRastreoActivo = null;
+      vistaRastreoAjustada = false;
+
+      $("panelRastreoActivo")
+        .classList.remove("oculto");
+
+      $("panelRepartidoresMapa")
+        .classList.add("oculto");
+
+      document.body.classList.add(
+        "rastreo-en-curso"
+      );
+
+      $("rastreoActivoCliente").textContent =
+        pedido?.cliente || "Rastreo del pedido";
+
+      $("rastreoActivoDireccion").textContent =
+        pedido?.direccionCorta ||
+        pedido?.direccion ||
+        "Dirección pendiente";
+
+      $("rastreoActivoRepartidor").textContent =
+        pedido?.repartidorNombre ||
+        "Sin asignar";
+
+      $("rastreoActivoId").textContent =
+        pedidoId;
+
+      $("rastreoActivoDistancia").textContent =
+        "Esperando GPS";
+
+      $("rastreoActivoActualizacion").textContent =
+        "Conectando...";
+
+      $("rastreoActivoMensaje").textContent =
+        "Consultando el seguimiento del pedido.";
+
+      const badge =
+        $("rastreoActivoEstado");
+
+      badge.className =
+        `badge-estado ${claseEstado(
+          pedido?.estado || "asignado"
+        )}`;
+
+      badge.textContent =
+        textoEstado(
+          pedido?.estado || "asignado"
+        );
+
+      cerrarModalPedidosActivos();
+
+      document
+        .querySelector(".panel-mapa")
+        ?.scrollIntoView({
+          behavior: "smooth",
+          block: "start"
+        });
+
+      cancelarEscuchaRastreoActivo =
+        onSnapshot(
+          doc(
+            db,
+            "rastreoPublico",
+            pedidoId
+          ),
+          (snapshot) => {
+            if (!snapshot.exists()) {
+              $("rastreoActivoMensaje").textContent =
+                "Todavía no existe información pública de rastreo para este pedido.";
+
+              return;
+            }
+
+            actualizarPanelRastreoActivo({
+              id: snapshot.id,
+              ...snapshot.data()
+            });
+          },
+          (error) => {
+            console.error(
+              "Error rastreando pedido activo:",
+              error
+            );
+
+            $("rastreoActivoMensaje").textContent =
+              "No fue posible recibir la ubicación en tiempo real.";
+          }
+        );
+    }
 
     async function cargarClientes() {
       try {
@@ -377,6 +1719,41 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
       }
     }
 
+    function nombreVisibleRepartidor(repartidor) {
+      return (
+        repartidor.nombre &&
+        repartidor.nombre !== "Repartidor"
+          ? repartidor.nombre
+          : repartidor.correo || repartidor.uid
+      );
+    }
+
+    function renderizarSelectorRepartidores() {
+      const select = $("selectRepartidor");
+      const valorAnterior = select.value;
+
+      select.innerHTML =
+        '<option value="">-- Seleccionar repartidor --</option>';
+
+      listaRepartidores.forEach((repartidor) => {
+        const opcion = document.createElement("option");
+        opcion.value = repartidor.uid;
+        opcion.textContent =
+          `${nombreVisibleRepartidor(repartidor)} · ` +
+          `${repartidor.estado || "sin estado"}`;
+        select.appendChild(opcion);
+      });
+
+      if (
+        valorAnterior &&
+        listaRepartidores.some(
+          (repartidor) => repartidor.uid === valorAnterior
+        )
+      ) {
+        select.value = valorAnterior;
+      }
+    }
+
     async function cargarRepartidores() {
       try {
         const snapshot = await getDocs(
@@ -389,28 +1766,22 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
             ...item.data()
           }))
           .sort((a, b) => {
-            const nombreA = (a.nombre || a.correo || "").toLowerCase();
-            const nombreB = (b.nombre || b.correo || "").toLowerCase();
+            const nombreA =
+              (a.nombre || a.correo || "").toLowerCase();
+            const nombreB =
+              (b.nombre || b.correo || "").toLowerCase();
+
             return nombreA.localeCompare(nombreB, "es");
           });
 
-        const select = $("selectRepartidor");
-        select.innerHTML = '<option value="">-- Seleccionar repartidor --</option>';
-
-        listaRepartidores.forEach((repartidor) => {
-          const opcion = document.createElement("option");
-          opcion.value = repartidor.uid;
-
-          const nombre =
-            repartidor.nombre && repartidor.nombre !== "Repartidor"
-              ? repartidor.nombre
-              : repartidor.correo || repartidor.uid;
-
-          opcion.textContent = `${nombre} · ${repartidor.estado || "sin estado"}`;
-          select.appendChild(opcion);
-        });
+        renderizarSelectorRepartidores();
+        actualizarRepartidoresEnMapa();
       } catch (error) {
-        console.error("No se pudieron cargar repartidores:", error);
+        console.error(
+          "No se pudieron cargar repartidores:",
+          error
+        );
+
         alert("No se pudo cargar la lista de repartidores.");
       }
     }
@@ -423,26 +1794,73 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
         return;
       }
 
-      const cliente = listaClientes[Number(indice)];
+      const cliente =
+        listaClientes[Number(indice)];
 
       $("docId").value = cliente.id;
-      $("cliente").value = cliente.nombre || "";
+      $("cliente").value =
+        cliente.nombre || "";
 
-      const direccion = cliente.direccion || "";
-      const coincidencia = direccion.match(/^(.*)\s+([A-Za-z0-9\-\/]+)$/);
+      const direccion =
+        cliente.direccion || "";
+
+      const coincidencia =
+        direccion.match(
+          /^(.*)\s+([A-Za-z0-9\-\/]+)$/
+        );
 
       if (coincidencia) {
-        $("selectCalle").value = coincidencia[1].trim();
-        $("numExterior").value = coincidencia[2].trim();
+        $("selectCalle").value =
+          coincidencia[1].trim();
+
+        $("numExterior").value =
+          coincidencia[2].trim();
       } else {
         $("selectCalle").value = "";
-        $("numExterior").value = direccion;
+        $("numExterior").value =
+          direccion;
+      }
+
+      const latitud = Number(
+        cliente.destino?.latitud ??
+        cliente.latitud
+      );
+
+      const longitud = Number(
+        cliente.destino?.longitud ??
+        cliente.longitud
+      );
+
+      if (
+        Number.isFinite(latitud) &&
+        Number.isFinite(longitud) &&
+        mapa
+      ) {
+        colocarDestino(
+          {
+            lat: latitud,
+            lng: longitud
+          },
+          true,
+          "guardada",
+          cliente.direccionMapa || ""
+        );
+
+        return;
       }
 
       invalidarDestino();
+
+      actualizarEstadoPin(
+        "",
+        "Este cliente todavía no tiene un punto exacto guardado. Busca la dirección o selecciónala en el mapa."
+      );
     }
 
     function invalidarDestino() {
+      secuenciaGeocodificacion += 1;
+      secuenciaGeocodificacionInversa += 1;
+      desactivarModoPinManual();
       destinoActual = null;
       $("btnCrearPedido").disabled = true;
 
@@ -460,6 +1878,11 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
         <strong>Destino</strong>
         Pendiente
       `;
+
+      actualizarEstadoPin(
+        "",
+        "La dirección cambió. Vuelve a buscarla o selecciona el punto exacto en el mapa."
+      );
     }
 
     function limpiarFormularioCliente() {
@@ -492,7 +1915,22 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
         {
           nombre,
           direccion,
-          ultimaActualizacion: serverTimestamp()
+          destino: destinoActual
+            ? {
+                latitud: destinoActual.lat,
+                longitud: destinoActual.lng
+              }
+            : null,
+          latitud:
+            destinoActual?.lat ?? null,
+          longitud:
+            destinoActual?.lng ?? null,
+          direccionMapa:
+            destinoActual?.direccionMapa || null,
+          metodoUbicacion:
+            destinoActual?.metodoUbicacion || null,
+          ultimaActualizacion:
+            serverTimestamp()
         }
       );
 
@@ -515,8 +1953,24 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
         {
           nombre,
           direccion,
-          fechaRegistro: serverTimestamp(),
-          ultimaActualizacion: serverTimestamp()
+          destino: destinoActual
+            ? {
+                latitud: destinoActual.lat,
+                longitud: destinoActual.lng
+              }
+            : null,
+          latitud:
+            destinoActual?.lat ?? null,
+          longitud:
+            destinoActual?.lng ?? null,
+          direccionMapa:
+            destinoActual?.direccionMapa || null,
+          metodoUbicacion:
+            destinoActual?.metodoUbicacion || null,
+          fechaRegistro:
+            serverTimestamp(),
+          ultimaActualizacion:
+            serverTimestamp()
         }
       );
 
@@ -591,6 +2045,11 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
         (item) => item.uid === repartidorUID
       );
 
+      const repartidorTelefonoWhatsapp =
+        telefonoWhatsappRepartidor(
+          repartidor
+        );
+
       $("btnCrearPedido").disabled = true;
 
       try {
@@ -600,6 +2059,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
             cliente,
             direccion: direccionCompleta,
             direccionCorta,
+            direccionMapa:
+              destinoActual.direccionMapa || "",
+            metodoUbicacion:
+              destinoActual.metodoUbicacion || "desconocido",
             notasPedido,
 
             origen: {
@@ -633,6 +2096,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
               repartidor?.nombre ||
               repartidor?.correo ||
               "Repartidor",
+            repartidorTelefono:
+              repartidor?.telefono || "",
+            repartidorTelefonoWhatsapp:
+              repartidorTelefonoWhatsapp || "",
 
             creadoPorUID: auth.currentUser?.uid || null,
             creadoPorCorreo: auth.currentUser?.email || null,
@@ -655,6 +2122,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
             cliente,
             direccion: direccionCompleta,
             direccionCorta,
+            metodoUbicacion:
+              destinoActual.metodoUbicacion || "desconocido",
             tieneNotas: Boolean(notasPedido),
             estado: "asignado",
 
@@ -701,6 +2170,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
           <strong>Distancia:</strong> ${
             formatearDistancia(destinoActual.distanciaMetros)
           }<br>
+          <strong>Ubicación:</strong> ${
+            destinoActual.metodoUbicacion === "manual"
+              ? "Pin colocado manualmente"
+              : destinoActual.metodoUbicacion === "guardada"
+                ? "Punto guardado del cliente"
+                : "Dirección encontrada por Google"
+          }<br>
           <strong>Contenido / notas:</strong><br>
           ${notasComoHtml(notasPedido)}<br>
           <strong>Estado:</strong> asignado
@@ -711,22 +2187,73 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
         const enlaceSeguimiento =
           enlaceRastreoPedido(pedidoActualId);
 
+        const pedidoCreado = {
+          id: pedidoActualId,
+          cliente,
+          direccion: direccionCompleta,
+          direccionCorta,
+          notasPedido,
+          destino: {
+            latitud: destinoActual.lat,
+            longitud: destinoActual.lng
+          },
+          latitud: destinoActual.lat,
+          longitud: destinoActual.lng,
+          estado: "asignado",
+          repartidorUID,
+          repartidorNombre:
+            repartidor?.nombre ||
+            repartidor?.correo ||
+            "Repartidor",
+          repartidorTelefono:
+            repartidor?.telefono || "",
+          repartidorTelefonoWhatsapp:
+            repartidorTelefonoWhatsapp || ""
+        };
+
+        const enlaceWhatsappRepartidor =
+          crearEnlaceWhatsappRepartidor(
+            pedidoCreado
+          );
+
         const mensaje =
           `Hola ${cliente}. Tu pedido de Ferretería Granados fue asignado y será enviado a ${direccionCorta}. ` +
           `Puedes seguirlo aquí: ${enlaceSeguimiento}`;
 
         $("resultado").innerHTML = `
-          <a
-            class="whatsapp"
-            href="https://wa.me/?text=${encodeURIComponent(mensaje)}"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Enviar seguimiento por WhatsApp 📲
-          </a>
+          <div class="resultado-whatsapp-grid">
+            <a
+              class="whatsapp cliente"
+              href="https://wa.me/?text=${encodeURIComponent(mensaje)}"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              📲 Enviar seguimiento al cliente
+            </a>
+
+            ${
+              enlaceWhatsappRepartidor
+                ? `
+                  <a
+                    class="whatsapp repartidor"
+                    href="${enlaceWhatsappRepartidor}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    🚚 Avisar al repartidor
+                  </a>
+                `
+                : `
+                  <div class="mini telefono-faltante">
+                    El repartidor no tiene WhatsApp registrado.
+                  </div>
+                `
+            }
+          </div>
 
           <div class="mini">
             El pedido ya aparece en la aplicación del repartidor.
+            WhatsApp abrirá el mensaje preparado; solo falta pulsar Enviar.
           </div>
         `;
 
@@ -804,6 +2331,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
     async function crearRepartidor() {
       const nombre = escaparTexto($("repartidorNombre").value);
       const telefono = escaparTexto($("repartidorTelefono").value);
+      const telefonoWhatsapp =
+        normalizarTelefonoWhatsapp(telefono);
       const correo = escaparTexto($("repartidorCorreo").value).toLowerCase();
       const password = $("repartidorPassword").value;
       const confirmarPassword = $("repartidorPasswordConfirmar").value;
@@ -812,6 +2341,18 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
         mostrarEstado(
           $("estadoNuevoRepartidor"),
           "Escribe nombre, correo y contraseña.",
+          "error"
+        );
+        return;
+      }
+
+      if (
+        telefono &&
+        !telefonoWhatsapp
+      ) {
+        mostrarEstado(
+          $("estadoNuevoRepartidor"),
+          "El teléfono de WhatsApp debe tener 10 dígitos en México.",
           "error"
         );
         return;
@@ -853,6 +2394,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
             nombre,
             correo,
             telefono: telefono || "",
+            telefonoWhatsapp:
+              telefonoWhatsapp || "",
             activo: true,
             estado: "disponible",
             gpsActivo: false,
@@ -1232,7 +2775,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
       if (!uid) return false;
 
       const perfil = listaRepartidores.find(
-        (repartidor) => repartidor.id === uid
+        (repartidor) => repartidor.uid === uid
       );
 
       if (
@@ -1266,12 +2809,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
 
       listaRepartidores.forEach((repartidor) => {
         const ocupado = repartidorEstaOcupado(
-          repartidor.id,
+          repartidor.uid,
           pedido.id
         );
 
         const seleccionado =
-          repartidor.id === pedido.repartidorUID
+          repartidor.uid === pedido.repartidorUID
             ? "selected"
             : "";
 
@@ -1287,7 +2830,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
 
         opciones.push(`
           <option
-            value="${escaparTexto(repartidor.id)}"
+            value="${escaparTexto(repartidor.uid)}"
             ${seleccionado}
             ${deshabilitado}
           >
@@ -1370,7 +2913,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
       }
 
       const repartidorNuevo = listaRepartidores.find(
-        (item) => item.id === nuevoUid
+        (item) => item.uid === nuevoUid
       );
 
       if (!repartidorNuevo) {
@@ -1386,6 +2929,11 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
         repartidorNuevo.nombre ||
         repartidorNuevo.correo ||
         "Repartidor";
+
+      const telefonoNuevo =
+        telefonoWhatsappRepartidor(
+          repartidorNuevo
+        );
 
       const confirmado = confirm(
         `¿Reasignar el pedido de ${pedido.cliente || "este cliente"} a ${nombreNuevo}?`
@@ -1410,6 +2958,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
           {
             repartidorUID: nuevoUid,
             repartidorNombre: nombreNuevo,
+            repartidorTelefono:
+              repartidorNuevo.telefono || "",
+            repartidorTelefonoWhatsapp:
+              telefonoNuevo || "",
             reasignadoPorUID: auth.currentUser?.uid || null,
             reasignadoPorCorreo: auth.currentUser?.email || null,
             fechaReasignacion: serverTimestamp(),
@@ -1440,7 +2992,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
           pedido.repartidorUID !== nuevoUid
         ) {
           const anterior = listaRepartidores.find(
-            (item) => item.id === pedido.repartidorUID
+            (item) => item.uid === pedido.repartidorUID
           );
 
           if (anterior?.pedidoActivoId === pedidoId) {
@@ -1468,6 +3020,11 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
          */
         pedido.repartidorUID = nuevoUid;
         pedido.repartidorNombre = nombreNuevo;
+        pedido.repartidorTelefono =
+          repartidorNuevo.telefono || "";
+        pedido.repartidorTelefonoWhatsapp =
+          telefonoNuevo || "";
+
         renderizarPedidosActivos();
       } catch (error) {
         console.error("Error reasignando pedido:", error);
@@ -1526,7 +3083,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
 
         if (pedido.repartidorUID) {
           const perfil = listaRepartidores.find(
-            (item) => item.id === pedido.repartidorUID
+            (item) => item.uid === pedido.repartidorUID
           );
 
           if (perfil?.pedidoActivoId === pedidoId) {
@@ -1646,6 +3203,19 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
                   ${formatearHora(pedido.fechaCreacion)}
                 </p>
 
+                <p class="${
+                  crearEnlaceWhatsappRepartidor(pedido)
+                    ? ""
+                    : "telefono-faltante"
+                }">
+                  <strong>WhatsApp:</strong>
+                  ${
+                    crearEnlaceWhatsappRepartidor(pedido)
+                      ? "Registrado"
+                      : "Sin número válido"
+                  }
+                </p>
+
                 <p>
                   <strong>Distancia:</strong>
                   ${formatearDistancia(
@@ -1695,9 +3265,18 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
                   data-accion="rastrear"
                   data-pedido-id="${escaparTexto(pedido.id)}"
                 >
-                  Ver rastreo
+                  Seguir en mapa
                 </button>
 
+
+                <button
+                  class="btn-whatsapp-repartidor"
+                  type="button"
+                  data-accion="whatsapp-repartidor"
+                  data-pedido-id="${escaparTexto(pedido.id)}"
+                >
+                  📲 Avisar al repartidor por WhatsApp
+                </button>
 
                 <button
                   class="btn-secundario"
@@ -2086,6 +3665,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
         ]);
 
         iniciarEscuchaPedidosActivos();
+        iniciarEscuchaRepartidoresMapa();
 
         if (pedidoActualId) {
           $("pedidoActual").innerHTML = `
@@ -2135,6 +3715,68 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
       }
     });
 
+
+    $("btnCentrarRepartidores").addEventListener(
+      "click",
+      centrarRepartidoresActivos
+    );
+
+    $("listaRepartidoresMapa").addEventListener(
+      "click",
+      (evento) => {
+        const elemento = evento.target.closest(
+          "[data-repartidor-mapa]"
+        );
+
+        if (!elemento) return;
+
+        const uid = elemento.dataset.repartidorMapa;
+        const marcador = marcadoresRepartidores.get(uid);
+
+        if (!marcador || !mapa) return;
+
+        mapa.panTo(marcador.getPosition());
+
+        if (mapa.getZoom() < 17) {
+          mapa.setZoom(17);
+        }
+
+        google.maps.event.trigger(marcador, "click");
+      }
+    );
+
+
+    $("btnDetenerRastreoActivo").addEventListener(
+      "click",
+      detenerRastreoActivo
+    );
+
+    $("btnCentrarRastreoActivo").addEventListener(
+      "click",
+      centrarRastreoActivo
+    );
+
+    $("btnAbrirRastreoCliente").addEventListener(
+      "click",
+      () => {
+        if (!pedidoRastreoActivoId) return;
+
+        abrirRastreoPedido(
+          pedidoRastreoActivoId
+        );
+      }
+    );
+
+    $("btnVistaMapa").addEventListener(
+      "click",
+      () => cambiarTipoMapa("mapa")
+    );
+
+    $("btnVistaSatelite").addEventListener(
+      "click",
+      () => cambiarTipoMapa("satelite")
+    );
+
     $("btnLogin").addEventListener("click", iniciarSesion);
     $("loginPassword").addEventListener("keydown", (evento) => {
       if (evento.key === "Enter") iniciarSesion();
@@ -2181,7 +3823,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
       if (accion === "reasignar") {
         reasignarPedidoActivo(pedidoId, boton);
       } else if (accion === "rastrear") {
-        abrirRastreoPedido(pedidoId);
+        iniciarRastreoActivo(pedidoId);
+      } else if (
+        accion === "whatsapp-repartidor"
+      ) {
+        avisarRepartidorWhatsapp(
+          pedidoId
+        );
       } else if (accion === "ticket") {
         const pedido = pedidosActivos.find(
           (item) => item.id === pedidoId
@@ -2236,15 +3884,35 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
     });
 
     $("btnLogout").addEventListener("click", async () => {
+      detenerRastreoActivo();
+
       if (cancelarEscuchaPedidosActivos) {
         cancelarEscuchaPedidosActivos();
         cancelarEscuchaPedidosActivos = null;
       }
 
+      if (cancelarEscuchaRepartidoresMapa) {
+        cancelarEscuchaRepartidoresMapa();
+        cancelarEscuchaRepartidoresMapa = null;
+      }
+
+      if (temporizadorRepartidoresMapa) {
+        clearInterval(
+          temporizadorRepartidoresMapa
+        );
+        temporizadorRepartidoresMapa = null;
+      }
+
+      for (const marcador of marcadoresRepartidores.values()) {
+        marcador.setMap(null);
+      }
+
+      marcadoresRepartidores.clear();
       await signOut(auth);
     });
     $("selectCliente").addEventListener("change", cargarClienteSeleccionado);
     $("btnVistaPrevia").addEventListener("click", ubicarDestino);
+    $("btnModoPin").addEventListener("click", alternarModoPinManual);
     $("btnLimpiar").addEventListener("click", limpiarFormularioCliente);
     $("btnGuardarCliente").addEventListener("click", guardarCambiosCliente);
     $("btnNuevoCliente").addEventListener("click", guardarNuevoCliente);

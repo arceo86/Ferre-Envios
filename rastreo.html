@@ -1,13 +1,20 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0"
+  >
+
   <title>Rastreo | Ferretería Granados</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap"
+    rel="stylesheet"
+  >
 
   <style>
     :root {
@@ -19,7 +26,9 @@
       --fondo: #f5f5f5;
     }
 
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
     body {
       margin: 0;
@@ -29,6 +38,7 @@
       color: #101828;
       display: flex;
       flex-direction: column;
+      overflow-x: hidden;
     }
 
     #mapa {
@@ -38,14 +48,30 @@
       background: #e5e7eb;
     }
 
+    .boton-centrar {
+      position: fixed;
+      z-index: 20;
+      top: 16px;
+      right: 16px;
+      min-height: 42px;
+      padding: 10px 13px;
+      border: 0;
+      border-radius: 12px;
+      background: rgba(255,255,255,.96);
+      color: #1f2937;
+      box-shadow: 0 5px 18px rgba(0,0,0,.16);
+      font: 700 12px "Inter", sans-serif;
+      cursor: pointer;
+    }
+
     .panel-info {
       position: relative;
       z-index: 10;
       margin-top: -22px;
       padding: 22px 22px 26px;
-      background: #fff;
+      background: #ffffff;
       border-radius: 24px 24px 0 0;
-      box-shadow: 0 -5px 18px rgba(0, 0, 0, 0.10);
+      box-shadow: 0 -5px 18px rgba(0,0,0,.10);
     }
 
     .fila-estado {
@@ -63,7 +89,7 @@
       padding: 6px 12px;
       border-radius: 999px;
       background: var(--naranja);
-      color: #fff;
+      color: #ffffff;
       font-size: 12px;
       font-weight: 800;
       text-transform: uppercase;
@@ -89,9 +115,41 @@
       line-height: 1.45;
     }
 
+    .resumen {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .dato {
+      min-width: 0;
+      padding: 12px;
+      border: 1px solid #eaecf0;
+      border-radius: 12px;
+      background: #f9fafb;
+    }
+
+    .dato small {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--gris);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .dato strong {
+      display: block;
+      overflow: hidden;
+      font-size: 14px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .detalles {
       display: grid;
-      grid-template-columns: 62px 1fr;
+      grid-template-columns: 62px minmax(0, 1fr);
       gap: 14px;
       align-items: center;
       margin-top: 18px;
@@ -107,8 +165,8 @@
 
     .repartidor {
       margin: 0;
-      font-weight: 800;
       font-size: 15px;
+      font-weight: 800;
     }
 
     .detalle-secundario {
@@ -121,39 +179,12 @@
       display: none;
       margin-top: 16px;
       padding: 13px;
+      border: 1px solid #fecdca;
       border-radius: 12px;
       background: #fef3f2;
-      border: 1px solid #fecdca;
       color: #b42318;
       font-size: 13px;
       line-height: 1.45;
-    }
-
-    .resumen {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-top: 16px;
-    }
-
-    .dato {
-      padding: 12px;
-      border-radius: 12px;
-      background: #f9fafb;
-      border: 1px solid #eaecf0;
-    }
-
-    .dato small {
-      display: block;
-      color: var(--gris);
-      font-size: 11px;
-      text-transform: uppercase;
-      font-weight: 700;
-      margin-bottom: 4px;
-    }
-
-    .dato strong {
-      font-size: 14px;
     }
 
     @media (min-width: 760px) {
@@ -169,22 +200,30 @@
 
       .panel-info {
         margin-top: 0;
-        border-radius: 0;
         overflow-y: auto;
-        box-shadow: -5px 0 18px rgba(0, 0, 0, 0.10);
+        border-radius: 0;
+        box-shadow: -5px 0 18px rgba(0,0,0,.10);
         padding-top: 34px;
+      }
+
+      .boton-centrar {
+        right: 400px;
       }
     }
   </style>
 
   <script>
     window.mapaListo = false;
+
     window.initMap = function () {
       window.mapaListo = true;
-      window.dispatchEvent(new Event("google-maps-ready"));
+      window.dispatchEvent(
+        new Event("google-maps-ready")
+      );
     };
   </script>
 
+  <!-- Conserva aquí tu clave actual de Google Maps -->
   <script
     async
     defer
@@ -195,14 +234,28 @@
 <body>
   <div id="mapa"></div>
 
+  <button id="btnCentrarMapa" class="boton-centrar" type="button">
+    ⦿ Centrar recorrido
+  </button>
+
   <section class="panel-info">
     <div class="fila-estado">
-      <span id="estadoTexto" class="etiqueta-estado">CARGANDO</span>
-      <span id="ultimaActualizacion" class="ultima-actualizacion">Sin datos</span>
+      <span id="estadoTexto" class="etiqueta-estado">
+        CARGANDO
+      </span>
+
+      <span id="ultimaActualizacion" class="ultima-actualizacion">
+        Sin datos
+      </span>
     </div>
 
-    <h1 id="tituloPrincipal" class="titulo">Consultando tu pedido...</h1>
-    <p id="subtituloDestino" class="subtitulo">Ferretería Granados</p>
+    <h1 id="tituloPrincipal" class="titulo">
+      Consultando tu pedido...
+    </h1>
+
+    <p id="subtituloDestino" class="subtitulo">
+      Ferretería Granados
+    </p>
 
     <div class="resumen">
       <div class="dato">
@@ -221,564 +274,22 @@
         class="icono-camion"
         src="https://lh3.googleusercontent.com/d/1BO70O8A3Qf0qPeoFoCqezV3G0sNZMkc4"
         alt="Camioneta de reparto"
-      />
+      >
 
       <div>
-        <p id="nombreRepartidor" class="repartidor">Repartidor asignado</p>
-        <p id="detalleRepartidor" class="detalle-secundario">Esperando ubicación</p>
+        <p id="nombreRepartidor" class="repartidor">
+          Repartidor asignado
+        </p>
+
+        <p id="detalleRepartidor" class="detalle-secundario">
+          Esperando ubicación
+        </p>
       </div>
     </div>
 
     <div id="mensajeError" class="mensaje-error"></div>
   </section>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-    import {
-      doc,
-      getFirestore,
-      onSnapshot
-    } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyBNC-Oh6i2wyZMRiailIoYZ8rzpjN-6wBo",
-      authDomain: "ferreteria-envios.firebaseapp.com",
-      projectId: "ferreteria-envios",
-      storageBucket: "ferreteria-envios.firebasestorage.app",
-      messagingSenderId: "871957193583",
-      appId: "1:871957193583:web:e093c54efa0919b142be9a"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    const ORIGEN = {
-      lat: 20.922644,
-      lng: -104.091522
-    };
-
-    const ICONO_CAMION =
-      "https://lh3.googleusercontent.com/d/1BO70O8A3Qf0qPeoFoCqezV3G0sNZMkc4";
-
-    let mapa;
-    let marcadorOrigen;
-    let marcadorDestino;
-    let marcadorCamion;
-
-    let cancelarPedido = null;
-    let cancelarRepartidor = null;
-
-    let pedidoActual = null;
-    let posicionCamion = null;
-    let primeraPosicion = true;
-
-    const $ = (id) => document.getElementById(id);
-
-    function obtenerPedidoId() {
-      return new URLSearchParams(window.location.search).get("pedido")?.trim() || "";
-    }
-
-    function mostrarError(mensaje) {
-      const elemento = $("mensajeError");
-      elemento.style.display = "block";
-      elemento.textContent = mensaje;
-    }
-
-    function ocultarError() {
-      $("mensajeError").style.display = "none";
-      $("mensajeError").textContent = "";
-    }
-
-    function formatearDistancia(metros) {
-      const numero = Number(metros);
-
-      if (!Number.isFinite(numero)) return "—";
-      if (numero < 1000) return `${Math.round(numero)} m`;
-
-      return `${(numero / 1000).toFixed(2)} km`;
-    }
-
-    function formatearFecha(timestamp) {
-      if (!timestamp) return "Sin actualización";
-
-      const fecha =
-        typeof timestamp.toDate === "function"
-          ? timestamp.toDate()
-          : new Date(timestamp);
-
-      if (Number.isNaN(fecha.getTime())) {
-        return "Sin actualización";
-      }
-
-      return fecha.toLocaleString("es-MX", {
-        hour: "2-digit",
-        minute: "2-digit",
-        day: "2-digit",
-        month: "2-digit"
-      });
-    }
-
-    function configurarEstado(estado) {
-      const etiqueta = $("estadoTexto");
-      const titulo = $("tituloPrincipal");
-
-      const estados = {
-        asignado: {
-          texto: "ASIGNADO",
-          color: "#1565c0",
-          titulo: "Tu pedido fue asignado"
-        },
-        en_preparacion: {
-          texto: "PREPARANDO",
-          color: "#f9ab00",
-          titulo: "Estamos preparando tu material"
-        },
-        en_camino: {
-          texto: "EN CAMINO",
-          color: "#d32f2f",
-          titulo: "Tu material está en camino"
-        },
-        entregado: {
-          texto: "ENTREGADO",
-          color: "#2e7d32",
-          titulo: "¡Tu material ha llegado!"
-        },
-        cancelado: {
-          texto: "CANCELADO",
-          color: "#667085",
-          titulo: "El pedido fue cancelado"
-        }
-      };
-
-      const config = estados[estado] || {
-        texto: "PENDIENTE",
-        color: "#667085",
-        titulo: "Consultando el estado del pedido"
-      };
-
-      etiqueta.textContent = config.texto;
-      etiqueta.style.background = config.color;
-      titulo.textContent = config.titulo;
-    }
-
-    function animarMarcador(marker, nuevaPosicion, duracion = 2200) {
-      const inicio = marker.getPosition();
-
-      if (!inicio) {
-        marker.setPosition(nuevaPosicion);
-        return;
-      }
-
-      const latInicial = inicio.lat();
-      const lngInicial = inicio.lng();
-      const inicioTiempo = performance.now();
-
-      function frame(tiempoActual) {
-        const progreso = Math.min((tiempoActual - inicioTiempo) / duracion, 1);
-
-        marker.setPosition({
-          lat: latInicial + (nuevaPosicion.lat - latInicial) * progreso,
-          lng: lngInicial + (nuevaPosicion.lng - lngInicial) * progreso
-        });
-
-        if (progreso < 1) {
-          requestAnimationFrame(frame);
-        }
-      }
-
-      requestAnimationFrame(frame);
-    }
-
-    function ajustarMapa() {
-      if (!mapa || !pedidoActual) return;
-
-      const puntos = [ORIGEN];
-
-      const destino = obtenerDestino(pedidoActual);
-      if (destino) puntos.push(destino);
-
-      if (posicionCamion) puntos.push(posicionCamion);
-
-      if (puntos.length === 1) {
-        mapa.setCenter(ORIGEN);
-        mapa.setZoom(16);
-        return;
-      }
-
-      const bounds = new google.maps.LatLngBounds();
-      puntos.forEach((punto) => bounds.extend(punto));
-
-      mapa.fitBounds(bounds, {
-        top: 80,
-        right: 60,
-        bottom: 80,
-        left: 60
-      });
-    }
-
-    function obtenerDestino(pedido) {
-      const latitud = Number(
-        pedido?.destino?.latitud ?? pedido?.latitud
-      );
-
-      const longitud = Number(
-        pedido?.destino?.longitud ?? pedido?.longitud
-      );
-
-      if (!Number.isFinite(latitud) || !Number.isFinite(longitud)) {
-        return null;
-      }
-
-      return {
-        lat: latitud,
-        lng: longitud
-      };
-    }
-
-    function actualizarPedidoEnPantalla(pedidoId, pedido) {
-      pedidoActual = pedido;
-
-      $("pedidoIdTexto").textContent = pedidoId;
-      $("subtituloDestino").textContent =
-        pedido.direccionCorta ||
-        pedido.direccion ||
-        "Dirección de entrega";
-
-      $("distanciaTexto").textContent =
-        formatearDistancia(pedido.distanciaEstimadaMetros);
-
-      $("nombreRepartidor").textContent =
-        pedido.repartidorNombre || "Repartidor asignado";
-
-      configurarEstado(pedido.estado);
-
-      const destino = obtenerDestino(pedido);
-
-      if (destino) {
-        marcadorDestino.setPosition(destino);
-        marcadorDestino.setVisible(true);
-      } else {
-        marcadorDestino.setVisible(false);
-      }
-
-      ajustarMapa();
-    }
-
-    function escucharRepartidor(uid) {
-      if (cancelarRepartidor) {
-        cancelarRepartidor();
-        cancelarRepartidor = null;
-      }
-
-      if (!uid) {
-        $("detalleRepartidor").textContent =
-          "Aún no hay repartidor asignado";
-        return;
-      }
-
-      cancelarRepartidor = onSnapshot(
-        doc(db, "repartidores", uid),
-        (snapshot) => {
-          if (!snapshot.exists()) {
-            mostrarError("No se encontró la información del repartidor.");
-            return;
-          }
-
-          ocultarError();
-
-          const repartidor = snapshot.data();
-
-          $("nombreRepartidor").textContent =
-            repartidor.nombre &&
-            repartidor.nombre !== "Repartidor"
-              ? repartidor.nombre
-              : repartidor.correo || "Repartidor asignado";
-
-          $("ultimaActualizacion").textContent =
-            formatearFecha(
-              repartidor.ultimaActualizacion ||
-              repartidor.ultimaConexion
-            );
-
-          const velocidadKmh = Math.max(
-            Number(repartidor.ubicacion?.velocidad || 0) * 3.6,
-            0
-          );
-
-          $("detalleRepartidor").textContent =
-            repartidor.estado === "entregando"
-              ? `En reparto · ${Math.round(velocidadKmh)} km/h`
-              : repartidor.estado || "Ubicación disponible";
-
-          const latitud = Number(repartidor.ubicacion?.latitud);
-          const longitud = Number(repartidor.ubicacion?.longitud);
-
-          if (!Number.isFinite(latitud) || !Number.isFinite(longitud)) {
-            return;
-          }
-
-          const nuevaPosicion = {
-            lat: latitud,
-            lng: longitud
-          };
-
-          posicionCamion = nuevaPosicion;
-          animarMarcador(marcadorCamion, nuevaPosicion);
-
-          if (primeraPosicion) {
-            primeraPosicion = false;
-            ajustarMapa();
-          }
-        },
-        (error) => {
-          console.error(error);
-          mostrarError(
-            "No fue posible consultar la ubicación del repartidor."
-          );
-        }
-      );
-    }
-
-    function escucharPedido(pedidoId) {
-      cancelarPedido = onSnapshot(
-        doc(db, "rastreoPublico", pedidoId),
-        (snapshot) => {
-          if (!snapshot.exists()) {
-            configurarEstado("no_existe");
-            $("tituloPrincipal").textContent = "Pedido no encontrado";
-            mostrarError(
-              "Revisa que el enlace de seguimiento esté completo."
-            );
-            return;
-          }
-
-          ocultarError();
-
-          const pedido = snapshot.data();
-          actualizarPedidoEnPantalla(pedidoId, pedido);
-          escucharRepartidor(pedido.repartidorUID);
-        },
-        (error) => {
-          console.error(error);
-          configurarEstado("error");
-          mostrarError(
-            "No fue posible consultar el pedido. Revisa los permisos de Firestore."
-          );
-        }
-      );
-    }
-function escucharRastreoPublico(pedidoId) {
-  if (cancelarPedido) {
-    cancelarPedido();
-    cancelarPedido = null;
-  }
-
-  cancelarPedido = onSnapshot(
-    doc(db, "rastreoPublico", pedidoId),
-
-    (snapshot) => {
-      if (!snapshot.exists()) {
-        configurarEstado("no_existe");
-
-        document.getElementById(
-          "tituloPrincipal"
-        ).textContent = "Pedido no encontrado";
-
-        mostrarError(
-          "El pedido no existe o el enlace de seguimiento no es válido."
-        );
-
-        return;
-      }
-
-      ocultarError();
-
-      const data = snapshot.data();
-
-      pedidoActual = data;
-
-      document.getElementById(
-        "pedidoIdTexto"
-      ).textContent = pedidoId;
-
-      document.getElementById(
-        "subtituloDestino"
-      ).textContent =
-        data.direccionCorta ||
-        data.direccion ||
-        "Dirección de entrega";
-
-      document.getElementById(
-        "distanciaTexto"
-      ).textContent =
-        formatearDistancia(
-          data.distanciaEstimadaMetros
-        );
-
-      document.getElementById(
-        "nombreRepartidor"
-      ).textContent =
-        data.repartidorNombre ||
-        "Repartidor asignado";
-
-      document.getElementById(
-        "ultimaActualizacion"
-      ).textContent =
-        formatearFecha(
-          data.ultimaActualizacion
-        );
-
-      configurarEstado(data.estado);
-
-      const latitudDestino = Number(
-        data.destino?.latitud
-      );
-
-      const longitudDestino = Number(
-        data.destino?.longitud
-      );
-
-      if (
-        Number.isFinite(latitudDestino) &&
-        Number.isFinite(longitudDestino)
-      ) {
-        const destino = {
-          lat: latitudDestino,
-          lng: longitudDestino,
-        };
-
-        marcadorDestino.setPosition(destino);
-        marcadorDestino.setVisible(true);
-      }
-
-      const latitudRepartidor = Number(
-        data.ubicacionRepartidor?.latitud
-      );
-
-      const longitudRepartidor = Number(
-        data.ubicacionRepartidor?.longitud
-      );
-
-      if (
-        Number.isFinite(latitudRepartidor) &&
-        Number.isFinite(longitudRepartidor)
-      ) {
-        const nuevaPosicion = {
-          lat: latitudRepartidor,
-          lng: longitudRepartidor,
-        };
-
-        posicionCamion = nuevaPosicion;
-
-        animarMarcador(
-          marcadorCamion,
-          nuevaPosicion
-        );
-
-        const velocidadKmh = Math.max(
-          Number(
-            data.ubicacionRepartidor?.velocidad || 0
-          ) * 3.6,
-          0
-        );
-
-        document.getElementById(
-          "detalleRepartidor"
-        ).textContent =
-          data.estado === "en_camino"
-            ? `En reparto · ${Math.round(
-                velocidadKmh
-              )} km/h`
-            : "Ubicación disponible";
-      } else {
-        document.getElementById(
-          "detalleRepartidor"
-        ).textContent =
-          "Esperando ubicación";
-      }
-
-      ajustarMapa();
-    },
-
-    (error) => {
-      console.error(
-        "Error leyendo rastreo público:",
-        error
-      );
-
-      mostrarError(
-        "No fue posible consultar el seguimiento público."
-      );
-    }
-  );
-}
-    function iniciarAplicacion() {
-      mapa = new google.maps.Map($("mapa"), {
-        center: ORIGEN,
-        zoom: 16,
-        disableDefaultUI: true,
-        zoomControl: true,
-        gestureHandling: "greedy"
-      });
-
-      marcadorOrigen = new google.maps.Marker({
-        map: mapa,
-        position: ORIGEN,
-        title: "Ferretería Granados",
-        label: {
-          text: "F",
-          color: "#ffffff",
-          fontWeight: "800"
-        }
-      });
-
-      marcadorDestino = new google.maps.Marker({
-        map: mapa,
-        visible: false,
-        title: "Destino de entrega",
-        icon: "https://maps.google.com/mapfiles/ms/icons/red-dot.png"
-      });
-
-      marcadorCamion = new google.maps.Marker({
-        map: mapa,
-        position: ORIGEN,
-        title: "Repartidor",
-        optimized: false,
-        icon: {
-          url: ICONO_CAMION,
-          scaledSize: new google.maps.Size(84, 56),
-          anchor: new google.maps.Point(42, 52)
-        },
-        zIndex: 20
-      });
-
-      const pedidoId = obtenerPedidoId();
-
-      if (!pedidoId) {
-        configurarEstado("no_existe");
-        $("tituloPrincipal").textContent = "Falta el número de pedido";
-        mostrarError(
-          "Este enlace no contiene el parámetro ?pedido=ID_DEL_PEDIDO."
-        );
-        return;
-      }
-
-escucharRastreoPublico(pedidoId);    }
-
-    if (window.mapaListo) {
-      iniciarAplicacion();
-    } else {
-      window.addEventListener(
-        "google-maps-ready",
-        iniciarAplicacion,
-        { once: true }
-      );
-    }
-
-    window.addEventListener("beforeunload", () => {
-      cancelarPedido?.();
-      cancelarRepartidor?.();
-    });
-  </script>
+  <script type="module" src="./rastreo.js?v=4"></script>
 </body>
 </html>

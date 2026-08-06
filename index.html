@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>v8.3 | Despacho | Ferretería Granados</title>
+  <title>v8.9 | Despacho | Ferretería Granados</title>
 
   <style>
     :root {
@@ -947,11 +947,489 @@
       }
     }
 
+
+    /* ===== Repartidores activos en mapa v8.4 ===== */
+    .repartidores-mapa-panel {
+      position: absolute;
+      z-index: 3;
+      left: 16px;
+      bottom: 16px;
+      width: min(340px, calc(100% - 32px));
+      max-height: 285px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.97);
+      border: 1px solid rgba(228, 231, 236, 0.95);
+      border-radius: 16px;
+      box-shadow: 0 10px 28px rgba(16, 24, 40, 0.20);
+      backdrop-filter: blur(5px);
+    }
+
+    .repartidores-mapa-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 13px;
+      border-bottom: 1px solid var(--borde);
+    }
+
+    .repartidores-mapa-header h3 {
+      margin: 0;
+      font-size: 14px;
+      color: #111827;
+    }
+
+    .repartidores-mapa-header small {
+      display: block;
+      margin-top: 2px;
+      color: var(--gris-texto);
+      font-size: 11px;
+    }
+
+    .repartidores-mapa-header button {
+      min-height: 34px;
+      padding: 7px 10px;
+      border-radius: 9px;
+      font-size: 11px;
+    }
+
+    .repartidores-activos-lista {
+      max-height: 215px;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .repartidor-mapa-item {
+      display: grid;
+      grid-template-columns: 10px minmax(0, 1fr) auto;
+      gap: 9px;
+      align-items: center;
+      padding: 9px 7px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    .repartidor-mapa-item:hover {
+      background: #f8fafc;
+    }
+
+    .repartidor-mapa-punto {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+    }
+
+    .repartidor-mapa-punto.entregando {
+      background: #ef4444;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.14);
+    }
+
+    .repartidor-mapa-info {
+      min-width: 0;
+    }
+
+    .repartidor-mapa-info strong {
+      display: block;
+      overflow: hidden;
+      color: #111827;
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .repartidor-mapa-info span {
+      display: block;
+      margin-top: 2px;
+      overflow: hidden;
+      color: var(--gris-texto);
+      font-size: 10px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .repartidor-mapa-hora {
+      color: #667085;
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .repartidores-vacio {
+      padding: 18px 12px;
+      color: var(--gris-texto);
+      font-size: 12px;
+      line-height: 1.45;
+      text-align: center;
+    }
+
+    @media (max-width: 650px) {
+      .repartidores-mapa-panel {
+        left: 8px;
+        right: 8px;
+        bottom: 8px;
+        width: auto;
+        max-height: 225px;
+      }
+
+      .repartidores-activos-lista {
+        max-height: 160px;
+      }
+
+      .map-overlay {
+        top: 8px;
+        left: 8px;
+        right: 8px;
+        flex-direction: column;
+      }
+
+      .map-chip {
+        max-width: 100%;
+      }
+    }
+
+
+    /* ===== Selección manual de destino v8.5 ===== */
+    .botones-tres {
+      grid-template-columns: 1fr 1fr 0.72fr;
+    }
+
+    .pin-ayuda {
+      margin-top: 10px;
+      padding: 11px 12px;
+      border: 1px solid #d0d5dd;
+      border-radius: 10px;
+      background: #f9fafb;
+      color: #475467;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .pin-ayuda strong {
+      color: #101828;
+    }
+
+    .pin-ayuda.activo {
+      border-color: #60a5fa;
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+
+    .pin-ayuda.confirmado {
+      border-color: #86efac;
+      background: #f0fdf4;
+      color: #166534;
+    }
+
+    .pin-ayuda.error {
+      border-color: #fda29b;
+      background: #fef3f2;
+      color: #b42318;
+    }
+
+    .modo-pin-manual #map {
+      cursor: crosshair !important;
+    }
+
+    .modo-pin-manual .panel-mapa {
+      outline: 3px solid rgba(37, 99, 235, 0.24);
+      outline-offset: -3px;
+    }
+
+    .chip-pin-manual {
+      display: none;
+      border-color: #93c5fd !important;
+      background: rgba(239, 246, 255, 0.97) !important;
+      color: #1d4ed8;
+    }
+
+    .chip-pin-manual.visible {
+      display: block;
+    }
+
+    @media (max-width: 650px) {
+      .botones-tres {
+        grid-template-columns: 1fr;
+      }
+    }
+
+
+    /* ===== Rastreo del pedido activo dentro del mostrador v8.6 ===== */
+    .rastreo-activo-panel {
+      position: absolute;
+      z-index: 6;
+      top: 16px;
+      right: 16px;
+      width: min(370px, calc(100% - 32px));
+      max-height: calc(100% - 32px);
+      overflow-y: auto;
+      padding: 14px;
+      border: 1px solid rgba(228, 231, 236, 0.96);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.97);
+      box-shadow: 0 12px 32px rgba(16, 24, 40, 0.22);
+      backdrop-filter: blur(5px);
+    }
+
+    .rastreo-activo-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 11px;
+      border-bottom: 1px solid var(--borde);
+    }
+
+    .rastreo-activo-header h3 {
+      margin: 0;
+      color: #101828;
+      font-size: 16px;
+      line-height: 1.25;
+    }
+
+    .rastreo-activo-header p {
+      margin: 4px 0 0;
+      color: var(--gris-texto);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+
+    .rastreo-activo-cerrar {
+      flex: 0 0 auto;
+      width: 34px;
+      height: 34px;
+      min-height: 34px;
+      padding: 0;
+      border-radius: 50%;
+      background: #f2f4f7;
+      color: #344054;
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .rastreo-activo-estado {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .rastreo-activo-estado small {
+      color: var(--gris-texto);
+      font-size: 10px;
+      text-align: right;
+    }
+
+    .rastreo-activo-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+      margin-top: 12px;
+    }
+
+    .rastreo-activo-dato {
+      min-width: 0;
+      padding: 10px;
+      border: 1px solid #eaecf0;
+      border-radius: 11px;
+      background: #f9fafb;
+    }
+
+    .rastreo-activo-dato.ancho {
+      grid-column: 1 / -1;
+    }
+
+    .rastreo-activo-dato small {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--gris-texto);
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .rastreo-activo-dato strong {
+      display: block;
+      overflow-wrap: anywhere;
+      color: #101828;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .rastreo-activo-mensaje {
+      margin-top: 11px;
+      padding: 10px 11px;
+      border: 1px solid #fed7aa;
+      border-radius: 10px;
+      background: #fff7ed;
+      color: #9a3412;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .rastreo-activo-acciones {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .rastreo-activo-acciones button {
+      min-height: 39px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      font-size: 11px;
+    }
+
+    .rastreo-en-curso .map-overlay {
+      max-width: calc(100% - 410px);
+    }
+
+    @media (max-width: 900px) {
+      .rastreo-activo-panel {
+        top: 8px;
+        right: 8px;
+        width: min(350px, calc(100% - 16px));
+        max-height: calc(100% - 16px);
+      }
+
+      .rastreo-en-curso .map-overlay {
+        max-width: calc(100% - 380px);
+      }
+    }
+
+    @media (max-width: 650px) {
+      .rastreo-activo-panel {
+        top: auto;
+        right: 8px;
+        bottom: 8px;
+        left: 8px;
+        width: auto;
+        max-height: 58%;
+      }
+
+      .rastreo-activo-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .rastreo-en-curso .map-overlay {
+        max-width: 100%;
+      }
+    }
+
+
+    /* ===== Selector Mapa / Satélite v8.7 ===== */
+    .control-tipo-mapa {
+      position: absolute;
+      z-index: 8;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: inline-flex;
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid rgba(208, 213, 221, 0.96);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 7px 20px rgba(16, 24, 40, 0.18);
+      backdrop-filter: blur(5px);
+    }
+
+    .control-tipo-mapa button {
+      min-height: 36px;
+      padding: 8px 13px;
+      border: 0;
+      border-radius: 9px;
+      background: transparent;
+      color: #475467;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: none;
+    }
+
+    .control-tipo-mapa button:hover {
+      background: #f2f4f7;
+    }
+
+    .control-tipo-mapa button.activo {
+      background: #101828;
+      color: #ffffff;
+    }
+
+    .control-tipo-mapa button:focus-visible {
+      outline: 3px solid rgba(37, 99, 235, 0.25);
+      outline-offset: 1px;
+    }
+
+    @media (max-width: 900px) {
+      .control-tipo-mapa {
+        top: 74px;
+      }
+    }
+
+    @media (max-width: 650px) {
+      .control-tipo-mapa {
+        top: 70px;
+        left: 8px;
+        right: 8px;
+        transform: none;
+        justify-content: center;
+      }
+
+      .control-tipo-mapa button {
+        flex: 1;
+      }
+    }
+
+
+    /* ===== Avisos de WhatsApp al repartidor v8.8 ===== */
+    .whatsapp.repartidor {
+      background: #128c7e;
+    }
+
+    .whatsapp.cliente {
+      background: #25d366;
+    }
+
+    .resultado-whatsapp-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .resultado-whatsapp-grid .whatsapp {
+      margin-top: 0;
+    }
+
+    .pedido-activo-acciones .btn-whatsapp-repartidor {
+      grid-column: 1 / -1;
+      background: #128c7e;
+      color: #ffffff;
+    }
+
+    .pedido-activo-acciones .btn-whatsapp-repartidor:hover {
+      background: #0f766e;
+    }
+
+    .telefono-faltante {
+      color: #b45309 !important;
+      font-weight: 700;
+    }
+
+    @media (max-width: 650px) {
+      .resultado-whatsapp-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
   </style>
 </head>
 
 <body>
-  <!-- FERRETERÍA GRANADOS MOSTRADOR v8.3 -->
+  <!-- FERRETERÍA GRANADOS MOSTRADOR v8.9 -->
   <section id="loginPage" class="login-page">
     <div class="login-card">
       <h1>Ferretería Granados</h1>
@@ -1018,9 +1496,23 @@
             </div>
           </div>
 
-          <div class="botones botones-dos">
-            <button id="btnVistaPrevia" class="btn-azul">📍 Ubicar destino</button>
-            <button id="btnLimpiar" class="btn-claro">Limpiar</button>
+          <div class="botones botones-tres">
+            <button id="btnVistaPrevia" class="btn-azul">
+              🔎 Buscar dirección
+            </button>
+
+            <button id="btnModoPin" class="btn-secundario">
+              📌 Elegir en el mapa
+            </button>
+
+            <button id="btnLimpiar" class="btn-claro">
+              Limpiar
+            </button>
+          </div>
+
+          <div id="pinManualEstado" class="pin-ayuda">
+            Puedes buscar la dirección o pulsar <strong>Elegir en el mapa</strong>.
+            Después toca el punto exacto y también podrás arrastrar el marcador.
           </div>
 
           <div class="botones botones-dos">
@@ -1082,6 +1574,30 @@
       </section>
 
       <section class="panel panel-mapa">
+        <div
+          id="controlTipoMapa"
+          class="control-tipo-mapa"
+          role="group"
+          aria-label="Tipo de mapa"
+        >
+          <button
+            id="btnVistaMapa"
+            class="activo"
+            type="button"
+            aria-pressed="true"
+          >
+            🗺️ Mapa
+          </button>
+
+          <button
+            id="btnVistaSatelite"
+            type="button"
+            aria-pressed="false"
+          >
+            🛰️ Satélite
+          </button>
+        </div>
+
         <div class="map-overlay">
           <div class="map-chip">
             <strong>Origen</strong>
@@ -1093,7 +1609,93 @@
             <strong>Destino</strong>
             Pendiente
           </div>
+
+          <div id="chipPinManual" class="map-chip chip-pin-manual">
+            <strong>Selección manual activa</strong>
+            Toca el mapa para colocar el destino.
+          </div>
         </div>
+
+
+
+        <aside id="panelRastreoActivo" class="rastreo-activo-panel oculto">
+          <div class="rastreo-activo-header">
+            <div>
+              <h3 id="rastreoActivoCliente">Rastreo del pedido</h3>
+              <p id="rastreoActivoDireccion">Esperando información...</p>
+            </div>
+
+            <button
+              id="btnDetenerRastreoActivo"
+              class="rastreo-activo-cerrar"
+              type="button"
+              aria-label="Cerrar rastreo"
+              title="Cerrar rastreo"
+            >
+              ×
+            </button>
+          </div>
+
+          <div class="rastreo-activo-estado">
+            <span id="rastreoActivoEstado" class="badge-estado">
+              Cargando
+            </span>
+
+            <small id="rastreoActivoActualizacion">
+              Sin actualización
+            </small>
+          </div>
+
+          <div class="rastreo-activo-grid">
+            <div class="rastreo-activo-dato">
+              <small>Repartidor</small>
+              <strong id="rastreoActivoRepartidor">Sin asignar</strong>
+            </div>
+
+            <div class="rastreo-activo-dato">
+              <small>Distancia al destino</small>
+              <strong id="rastreoActivoDistancia">—</strong>
+            </div>
+
+            <div class="rastreo-activo-dato ancho">
+              <small>Pedido</small>
+              <strong id="rastreoActivoId">—</strong>
+            </div>
+          </div>
+
+          <div id="rastreoActivoMensaje" class="rastreo-activo-mensaje">
+            Esperando la ubicación del repartidor.
+          </div>
+
+          <div class="rastreo-activo-acciones">
+            <button id="btnCentrarRastreoActivo" class="btn-azul" type="button">
+              Centrar rastreo
+            </button>
+
+            <button id="btnAbrirRastreoCliente" class="btn-secundario" type="button">
+              Vista del cliente
+            </button>
+          </div>
+        </aside>
+
+        <aside id="panelRepartidoresMapa" class="repartidores-mapa-panel">
+          <div class="repartidores-mapa-header">
+            <div>
+              <h3>Repartidores activos: <span id="contadorRepartidoresMapa">0</span></h3>
+              <small>Solo aparecen ubicaciones actualizadas en los últimos 5 minutos</small>
+            </div>
+
+            <button id="btnCentrarRepartidores" class="btn-azul" type="button">
+              Ver todos
+            </button>
+          </div>
+
+          <div id="listaRepartidoresMapa" class="repartidores-activos-lista">
+            <div class="repartidores-vacio">
+              Esperando ubicaciones de los repartidores.
+            </div>
+          </div>
+        </aside>
 
         <div id="map"></div>
       </section>
@@ -1113,8 +1715,9 @@
       <label for="repartidorNombre">Nombre completo</label>
       <input id="repartidorNombre" autocomplete="name" placeholder="Ej. Juan Pérez" />
 
-      <label for="repartidorTelefono">Teléfono</label>
-      <input id="repartidorTelefono" type="tel" autocomplete="tel" placeholder="Ej. 33 1234 5678" />
+      <label for="repartidorTelefono">Teléfono de WhatsApp</label>
+      <input id="repartidorTelefono" type="tel" inputmode="numeric" autocomplete="tel" placeholder="Ej. 33 1234 5678" />
+      <div class="mini">México: escribe los 10 dígitos. El sistema agregará automáticamente el prefijo 52.</div>
 
       <label for="repartidorCorreo">Correo para iniciar sesión</label>
       <input id="repartidorCorreo" type="email" autocomplete="off" placeholder="repartidor@granados.com" />
@@ -1263,7 +1866,7 @@
       </div>
     </div>
   </section>
-  <script type="module" src="./mostrador.js?v=8.3"></script>
+  <script type="module" src="./mostrador.js?v=8.9"></script>
 
   <!-- Sustituye TU_API_KEY por tu clave restringida de Google Maps. -->
   <script
