@@ -1,4 +1,4 @@
-console.info("Ferretería Granados Mostrador v8.9 cargado");
+console.info("Ferretería Granados Mostrador v9.0 cargado");
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 
@@ -129,7 +129,89 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
     let lineaRastreo = null;
     let vistaRastreoAjustada = false;
 
+    let observadorTamanoMapa = null;
+    let temporizadorRedimensionMapa = null;
+
     const $ = (id) => document.getElementById(id);
+
+    function redimensionarMapaSinCambiarVista() {
+      if (!mapa) return;
+
+      const centroActual =
+        mapa.getCenter?.() || null;
+
+      google.maps.event.trigger(
+        mapa,
+        "resize"
+      );
+
+      /*
+       * Conservar centro y zoom para que cambiar el tamaño
+       * de la ventana no provoque saltos molestos.
+       */
+      if (centroActual) {
+        mapa.setCenter(centroActual);
+      }
+    }
+
+    function programarRedimensionMapa() {
+      if (temporizadorRedimensionMapa) {
+        clearTimeout(
+          temporizadorRedimensionMapa
+        );
+      }
+
+      temporizadorRedimensionMapa =
+        window.setTimeout(() => {
+          redimensionarMapaSinCambiarVista();
+        }, 120);
+    }
+
+    function iniciarMapaResponsivo() {
+      const panelMapa =
+        document.querySelector(
+          ".panel-mapa"
+        );
+
+      if (
+        panelMapa &&
+        "ResizeObserver" in window
+      ) {
+        observadorTamanoMapa?.disconnect();
+
+        observadorTamanoMapa =
+          new ResizeObserver(() => {
+            programarRedimensionMapa();
+          });
+
+        observadorTamanoMapa.observe(
+          panelMapa
+        );
+      }
+
+      window.addEventListener(
+        "resize",
+        programarRedimensionMapa,
+        { passive: true }
+      );
+
+      window.addEventListener(
+        "orientationchange",
+        () => {
+          window.setTimeout(
+            programarRedimensionMapa,
+            250
+          );
+        },
+        { passive: true }
+      );
+
+      window.visualViewport?.addEventListener(
+        "resize",
+        programarRedimensionMapa,
+        { passive: true }
+      );
+    }
 
     function mostrarEstado(elemento, mensaje, tipo = "") {
       elemento.textContent = mensaje;
@@ -804,6 +886,15 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
       });
 
       actualizarBotonesTipoMapa();
+      iniciarMapaResponsivo();
+
+      /*
+       * Esperar a que el navegador termine de calcular
+       * el tamaño inicial de la cuadrícula.
+       */
+      window.requestAnimationFrame(() => {
+        programarRedimensionMapa();
+      });
 
       geocoder = new google.maps.Geocoder();
       infoRepartidorMapa = new google.maps.InfoWindow();
@@ -3901,6 +3992,16 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
           temporizadorRepartidoresMapa
         );
         temporizadorRepartidoresMapa = null;
+      }
+
+      observadorTamanoMapa?.disconnect();
+      observadorTamanoMapa = null;
+
+      if (temporizadorRedimensionMapa) {
+        clearTimeout(
+          temporizadorRedimensionMapa
+        );
+        temporizadorRedimensionMapa = null;
       }
 
       for (const marcador of marcadoresRepartidores.values()) {

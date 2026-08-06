@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>v8.9 | Despacho | Ferretería Granados</title>
+  <title>v9.0 | Despacho | Ferretería Granados</title>
 
   <style>
     :root {
@@ -1425,11 +1425,320 @@
       }
     }
 
+
+    /* =======================================================
+       Diseño adaptable a cualquier pantalla v9.0
+       ======================================================= */
+
+    html {
+      width: 100%;
+      height: 100%;
+      min-height: 100%;
+    }
+
+    body {
+      width: 100%;
+      min-height: 100%;
+      min-height: 100svh;
+      min-height: 100dvh;
+    }
+
+    .login-page {
+      min-height: 100vh;
+      min-height: 100svh;
+      min-height: 100dvh;
+    }
+
+    /*
+     * ESCRITORIO:
+     * La barra superior ocupa solo lo necesario.
+     * El formulario y el mapa llenan exactamente el espacio
+     * restante de la pantalla.
+     */
+    @media (min-width: 1101px) {
+      body {
+        overflow: hidden;
+      }
+
+      .app-shell {
+        width: 100%;
+        height: 100vh;
+        height: 100svh;
+        height: 100dvh;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        padding:
+          clamp(8px, 1.25vw, 18px);
+        overflow: hidden;
+      }
+
+      .topbar {
+        flex: 0 0 auto;
+        width: 100%;
+        max-width: none;
+        margin:
+          0 0 clamp(8px, 1.25vw, 18px);
+      }
+
+      .layout {
+        flex: 1 1 auto;
+        width: 100%;
+        max-width: none;
+        min-height: 0;
+        height: 0;
+        grid-template-columns:
+          clamp(350px, 31vw, 475px)
+          minmax(0, 1fr);
+        align-items: stretch;
+        overflow: hidden;
+      }
+
+      .panel-formulario {
+        height: 100%;
+        min-height: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-gutter: stable;
+      }
+
+      .panel-mapa {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      #map {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+      }
+    }
+
+    /*
+     * TABLETA Y TELÉFONO:
+     * El formulario y el mapa se apilan para evitar que
+     * queden demasiado estrechos. Toda la página puede
+     * desplazarse verticalmente.
+     */
+    @media (max-width: 1100px) {
+      body {
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+
+      .app-shell {
+        width: 100%;
+        min-height: 100vh;
+        min-height: 100svh;
+        min-height: 100dvh;
+        height: auto;
+        overflow: visible;
+      }
+
+      .topbar,
+      .layout {
+        width: 100%;
+        max-width: none;
+      }
+
+      .layout {
+        height: auto;
+        min-height: 0;
+        overflow: visible;
+      }
+
+      .panel-formulario {
+        height: auto;
+        max-height: none;
+        overflow: visible;
+      }
+
+      .panel-mapa {
+        width: 100%;
+        height: clamp(420px, 62svh, 720px);
+        height: clamp(420px, 62dvh, 720px);
+        min-height: 420px;
+        overflow: hidden;
+      }
+
+      #map {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+      }
+    }
+
+    /*
+     * TELÉFONOS:
+     * Se aprovecha todo el ancho, se reducen márgenes y
+     * los controles del mapa se reacomodan.
+     */
+    @media (max-width: 760px) {
+      .app-shell {
+        padding:
+          max(6px, env(safe-area-inset-top))
+          max(6px, env(safe-area-inset-right))
+          max(8px, env(safe-area-inset-bottom))
+          max(6px, env(safe-area-inset-left));
+      }
+
+      .topbar {
+        margin-bottom: 8px;
+        border-radius: 13px;
+      }
+
+      .layout {
+        gap: 8px;
+      }
+
+      .panel {
+        border-radius: 14px;
+      }
+
+      .panel-formulario {
+        padding: 14px;
+      }
+
+      .panel-mapa {
+        height: max(390px, 65svh);
+        height: max(390px, 65dvh);
+        min-height: 390px;
+      }
+
+      .control-tipo-mapa {
+        top: 8px;
+        left: 8px;
+        right: 8px;
+        width: auto;
+        transform: none;
+      }
+
+      .map-overlay {
+        top: 58px;
+        left: 8px;
+        right: 8px;
+        width: auto;
+        max-width: none;
+        gap: 6px;
+      }
+
+      .map-chip {
+        padding: 7px 9px;
+        font-size: 10px;
+      }
+
+      .repartidores-mapa-panel {
+        max-height: min(215px, 40%);
+      }
+
+      .repartidores-activos-lista {
+        max-height: 145px;
+      }
+
+      .rastreo-activo-panel {
+        max-height: min(58%, 390px);
+      }
+    }
+
+    /*
+     * Teléfonos angostos.
+     */
+    @media (max-width: 480px) {
+      .marca-icono {
+        width: 38px;
+        height: 38px;
+      }
+
+      .marca h1 {
+        font-size: 16px;
+      }
+
+      .marca small {
+        font-size: 11px;
+      }
+
+      .acciones-topbar {
+        grid-template-columns: 1fr;
+      }
+
+      .fila {
+        grid-template-columns: minmax(0, 1fr) 92px;
+      }
+
+      .campo-ayuda {
+        flex-direction: column;
+        gap: 3px;
+      }
+
+      .rastreo-activo-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .rastreo-activo-dato.ancho {
+        grid-column: auto;
+      }
+
+      .rastreo-activo-acciones {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /*
+     * Pantallas bajas, como laptops pequeñas o teléfono
+     * en posición horizontal.
+     */
+    @media (min-width: 1101px) and (max-height: 760px) {
+      .app-shell {
+        padding: 8px;
+      }
+
+      .topbar {
+        min-height: 54px;
+        margin-bottom: 8px;
+        padding: 8px 12px;
+      }
+
+      .marca-icono {
+        width: 38px;
+        height: 38px;
+      }
+
+      .acciones-topbar button {
+        min-height: 37px;
+        padding: 7px 9px;
+        font-size: 12px;
+      }
+
+      .panel-formulario {
+        padding: 16px;
+      }
+
+      .seccion {
+        margin-top: 13px;
+        padding-top: 13px;
+      }
+    }
+
+    /*
+     * La vista horizontal de teléfonos/tabletas conserva
+     * suficiente altura útil para el mapa.
+     */
+    @media (max-width: 1100px) and (orientation: landscape) and (max-height: 600px) {
+      .panel-mapa {
+        height: max(330px, 82svh);
+        height: max(330px, 82dvh);
+        min-height: 330px;
+      }
+    }
+
   </style>
 </head>
 
 <body>
-  <!-- FERRETERÍA GRANADOS MOSTRADOR v8.9 -->
+  <!-- FERRETERÍA GRANADOS MOSTRADOR v9.0 -->
   <section id="loginPage" class="login-page">
     <div class="login-card">
       <h1>Ferretería Granados</h1>
@@ -1866,7 +2175,7 @@
       </div>
     </div>
   </section>
-  <script type="module" src="./mostrador.js?v=8.9"></script>
+  <script type="module" src="./mostrador.js?v=9.0"></script>
 
   <!-- Sustituye TU_API_KEY por tu clave restringida de Google Maps. -->
   <script
