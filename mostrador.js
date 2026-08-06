@@ -1,4 +1,4 @@
-console.info("Ferretería Granados Mostrador v9.0 cargado");
+console.info("Ferretería Granados Mostrador v9.3 cargado");
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 
@@ -69,13 +69,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
         "https://lh3.googleusercontent.com/d/1BO70O8A3Qf0qPeoFoCqezV3G0sNZMkc4"
     };
 
-    const calles = [
+    const callesRespaldo = [
       "Calle 5 de Febrero",
       "Calle Allende",
       "Calle Colón",
       "Calle Degollado",
       "Calle Donato Guerra",
-      "Calle Javier Mina",
+      "Calle Francisco Javier Mina",
       "Calle Francisco Villa",
       "Calle Hidalgo",
       "Calle Josefa Ortiz de Domínguez",
@@ -102,6 +102,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
       "roadmap";
     let marcadorDestino = null;
     let circuloZona = null;
+
+    let RouteClass = null;
+    let temporizadorRuta = null;
+    let secuenciaRuta = 0;
+    let ultimaClaveRuta = "";
+    let polilineaRutaDestino = null;
+    const cacheRutas = new Map();
 
     let listaClientes = [];
     let listaRepartidores = [];
@@ -332,6 +339,17 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
       const enlaceMapa =
         enlaceNavegacionPedido(pedido);
 
+      const distanciaRuta =
+        Number(
+          pedido?.distanciaRutaMetros ??
+          pedido?.distanciaEstimadaMetros
+        );
+
+      const duracionRuta =
+        Number(
+          pedido?.duracionRutaSegundos
+        );
+
       const lineas = [
         "🚚 *NUEVO PEDIDO ASIGNADO*",
         "",
@@ -345,8 +363,18 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
         "",
         `*Pedido:* ${pedido?.id || "Pendiente"}`,
         "",
+        Number.isFinite(distanciaRuta)
+          ? `*Distancia por carretera:* ${formatearDistancia(distanciaRuta)}`
+          : "",
+        Number.isFinite(duracionRuta)
+          ? `*Tiempo estimado:* ${formatearDuracionRuta(duracionRuta)}`
+          : "",
+        pedido?.horaEstimadaLlegadaISO
+          ? `*Llegada aproximada:* ${formatearHoraRuta(pedido.horaEstimadaLlegadaISO)}`
+          : "",
+        "",
         "Abre la aplicación de repartidor para iniciar el viaje."
-      ];
+      ].filter(Boolean);
 
       if (enlaceMapa) {
         lineas.push(
@@ -425,21 +453,211 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
       );
     }
 
-    function obtenerDireccionCorta() {
-      const calle = escaparTexto($("selectCalle").value);
-      const numero = escaparTexto($("numExterior").value);
+    function esDestinoSanAndres() {
+      return (
+        $("tipoDestino").value ===
+        "san_andres"
+      );
+    }
 
-      if (!calle || !numero) {
-        throw new Error("Selecciona la calle y escribe el número exterior.");
+    function obtenerDatosDireccion() {
+      if (esDestinoSanAndres()) {
+        const calle =
+          escaparTexto(
+            $("selectCalle").value
+          );
+
+        const numero =
+          escaparTexto(
+            $("numExterior").value
+          );
+
+        const referencias =
+          escaparTexto(
+            $("referenciasSanAndres").value
+          );
+
+        if (!calle || !numero) {
+          throw new Error(
+            "Selecciona la calle y escribe el número exterior."
+          );
+        }
+
+        const direccionCorta =
+          `${calle} ${numero}`;
+
+        return {
+          tipoEntrega: "san_andres",
+          esLocalSanAndres: true,
+          calle,
+          numeroExterior: numero,
+          colonia: "",
+          localidad:
+            CONFIG.zona.localidad,
+          municipio:
+            CONFIG.zona.municipio,
+          estado:
+            CONFIG.zona.estado,
+          codigoPostal: "",
+          pais:
+            CONFIG.zona.pais,
+          referencias,
+          direccionCorta,
+          direccionCompleta:
+            `${direccionCorta}, ` +
+            `${CONFIG.zona.localidad}, ` +
+            `${CONFIG.zona.municipio}, ` +
+            `${CONFIG.zona.estado}, ` +
+            `${CONFIG.zona.pais}`,
+          zonaEntrega: "local"
+        };
       }
 
-      return `${calle} ${numero}`;
+      const calle =
+        escaparTexto(
+          $("calleExterna").value
+        );
+
+      const numero =
+        escaparTexto(
+          $("numeroExterno").value
+        );
+
+      const colonia =
+        escaparTexto(
+          $("coloniaExterna").value
+        );
+
+      const localidad =
+        escaparTexto(
+          $("localidadExterna").value
+        );
+
+      const municipio =
+        escaparTexto(
+          $("municipioExterno").value
+        );
+
+      const estado =
+        escaparTexto(
+          $("estadoExterno").value
+        );
+
+      const codigoPostal =
+        escaparTexto(
+          $("codigoPostalExterno").value
+        );
+
+      const referencias =
+        escaparTexto(
+          $("referenciasExterna").value
+        );
+
+      if (
+        !calle ||
+        !numero ||
+        !localidad ||
+        !municipio ||
+        !estado
+      ) {
+        throw new Error(
+          "Para otra localidad o municipio escribe calle, número, localidad, municipio y estado."
+        );
+      }
+
+      const partes = [
+        `${calle} ${numero}`,
+        colonia,
+        localidad,
+        municipio,
+        estado,
+        codigoPostal,
+        CONFIG.zona.pais
+      ].filter(Boolean);
+
+      return {
+        tipoEntrega:
+          "otro_municipio",
+        esLocalSanAndres: false,
+        calle,
+        numeroExterior: numero,
+        colonia,
+        localidad,
+        municipio,
+        estado,
+        codigoPostal,
+        pais:
+          CONFIG.zona.pais,
+        referencias,
+        direccionCorta:
+          `${calle} ${numero}, ` +
+          `${localidad}, ${municipio}`,
+        direccionCompleta:
+          partes.join(", "),
+        zonaEntrega: "foranea"
+      };
+    }
+
+    function obtenerDireccionCorta() {
+      return (
+        obtenerDatosDireccion()
+          .direccionCorta
+      );
     }
 
     function obtenerDireccionCompleta() {
-      const direccionCorta = obtenerDireccionCorta();
+      return (
+        obtenerDatosDireccion()
+          .direccionCompleta
+      );
+    }
 
-      return `${direccionCorta}, ${CONFIG.zona.localidad}, ${CONFIG.zona.municipio}, ${CONFIG.zona.estado}, ${CONFIG.zona.pais}`;
+    function actualizarModoDireccion(
+      invalidar = true
+    ) {
+      const local =
+        esDestinoSanAndres();
+
+      $("direccionSanAndres")
+        .classList.toggle(
+          "oculto",
+          !local
+        );
+
+      $("direccionExterna")
+        .classList.toggle(
+          "oculto",
+          local
+        );
+
+      const aviso =
+        $("tipoDestinoAviso");
+
+      aviso.classList.remove(
+        "local",
+        "foranea"
+      );
+
+      aviso.classList.add(
+        local
+          ? "local"
+          : "foranea"
+      );
+
+      aviso.innerHTML =
+        local
+          ? (
+              "<strong>Entrega local en San Andrés.</strong> " +
+              "Selecciona la calle desde la colección y escribe el número."
+            )
+          : (
+              "<strong>Entrega fuera de San Andrés.</strong> " +
+              "Escribe la dirección completa. La distancia y el tiempo se calcularán por carretera."
+            );
+
+      if (invalidar) {
+        invalidarDestino();
+      }
     }
 
     function radianes(grados) {
@@ -464,6 +682,94 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
       if (!Number.isFinite(metros)) return "No disponible";
       if (metros < 1000) return `${Math.round(metros)} m`;
       return `${(metros / 1000).toFixed(2)} km`;
+    }
+
+    function formatearDuracionRuta(
+      segundos
+    ) {
+      if (
+        segundos === null ||
+        segundos === undefined ||
+        segundos === ""
+      ) {
+        return "No disponible";
+      }
+
+      const total = Number(segundos);
+
+      if (!Number.isFinite(total)) {
+        return "No disponible";
+      }
+
+      const minutos = Math.max(
+        1,
+        Math.round(total / 60)
+      );
+
+      if (minutos < 60) {
+        return `${minutos} min`;
+      }
+
+      const horas = Math.floor(
+        minutos / 60
+      );
+
+      const minutosRestantes =
+        minutos % 60;
+
+      return minutosRestantes
+        ? `${horas} h ${minutosRestantes} min`
+        : `${horas} h`;
+    }
+
+    function formatearHoraRuta(
+      valor
+    ) {
+      if (!valor) return "—";
+
+      const fecha =
+        valor instanceof Date
+          ? valor
+          : new Date(valor);
+
+      if (
+        Number.isNaN(fecha.getTime())
+      ) {
+        return "—";
+      }
+
+      return fecha.toLocaleTimeString(
+        "es-MX",
+        {
+          hour: "2-digit",
+          minute: "2-digit"
+        }
+      );
+    }
+
+    function mismaPosicion(
+      a,
+      b
+    ) {
+      if (!a || !b) return false;
+
+      return (
+        Math.abs(
+          Number(a.lat) - Number(b.lat)
+        ) < 0.0000005 &&
+        Math.abs(
+          Number(a.lng) - Number(b.lng)
+        ) < 0.0000005
+      );
+    }
+
+    function claveRuta(
+      destino
+    ) {
+      return (
+        `${Number(destino.lat).toFixed(6)},` +
+        `${Number(destino.lng).toFixed(6)}`
+      );
     }
 
     function crearBoundsLocales() {
@@ -534,16 +840,563 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
       activarModoPinManual();
     }
 
-    function evaluarDestino(destino) {
-      const distancia = calcularDistanciaMetros(
-        CONFIG.empresa,
-        destino
+    function limpiarPolilineaRuta() {
+      if (polilineaRutaDestino) {
+        polilineaRutaDestino.setMap(null);
+        polilineaRutaDestino = null;
+      }
+    }
+
+    function actualizarResumenRuta(
+      tipo,
+      {
+        distancia = null,
+        duracion = null,
+        llegada = null,
+        mensaje = ""
+      } = {}
+    ) {
+      const panel =
+        $("rutaResumen");
+
+      panel.classList.remove(
+        "calculando",
+        "lista",
+        "advertencia",
+        "error"
       );
 
+      if (tipo) {
+        panel.classList.add(tipo);
+      }
+
+      $("rutaDistancia").textContent =
+        Number.isFinite(distancia)
+          ? formatearDistancia(distancia)
+          : "—";
+
+      $("rutaDuracion").textContent =
+        Number.isFinite(duracion)
+          ? formatearDuracionRuta(duracion)
+          : "—";
+
+      $("rutaLlegada").textContent =
+        llegada
+          ? formatearHoraRuta(llegada)
+          : "—";
+
+      $("rutaMensaje").textContent =
+        mensaje ||
+        "Selecciona un destino para calcular la ruta.";
+    }
+
+    function aplicarValidacionZona(
+      distancia,
+      tipoDistancia
+    ) {
+      const esRutaReal =
+        tipoDistancia === "ruta";
+
+      const descripcion =
+        esRutaReal
+          ? "por carretera"
+          : "en línea recta";
+
+      /*
+       * Fuera de San Andrés la distancia deja de ser
+       * un bloqueo. Se clasifica como entrega foránea
+       * y se permite crear el pedido con dirección
+       * completa y pin confirmado.
+       */
+      if (!esDestinoSanAndres()) {
+        let municipio =
+          "otro municipio";
+
+        try {
+          municipio =
+            obtenerDatosDireccion()
+              .municipio;
+        } catch {
+          // Los campos todavía pueden estar incompletos
+          // mientras el usuario edita la dirección.
+        }
+
+        mostrarEstado(
+          $("zonaEstado"),
+          `Entrega fuera de San Andrés hacia ${municipio}: ${formatearDistancia(
+            distancia
+          )} ${descripcion}. Verifica disponibilidad y costo de envío.`,
+          "alerta"
+        );
+
+        $("btnCrearPedido").disabled =
+          false;
+
+        return;
+      }
+
+      if (
+        distancia <=
+        CONFIG.zona.radioHabitualMetros
+      ) {
+        mostrarEstado(
+          $("zonaEstado"),
+          `Destino dentro de la zona habitual de San Andrés: ${formatearDistancia(
+            distancia
+          )} ${descripcion}.`,
+          "ok"
+        );
+
+        $("btnCrearPedido").disabled =
+          false;
+
+        return;
+      }
+
+      if (
+        distancia <=
+        CONFIG.zona.radioMaximoMetros
+      ) {
+        mostrarEstado(
+          $("zonaEstado"),
+          `Destino en los alrededores de San Andrés: ${formatearDistancia(
+            distancia
+          )} ${descripcion}.`,
+          "alerta"
+        );
+
+        $("btnCrearPedido").disabled =
+          false;
+
+        return;
+      }
+
+      mostrarEstado(
+        $("zonaEstado"),
+        `El punto seleccionado está a ${formatearDistancia(
+          distancia
+        )} ${descripcion}. Si la entrega no es en San Andrés, cambia el área a “Otra localidad o municipio”.`,
+        "error"
+      );
+
+      $("btnCrearPedido").disabled =
+        true;
+    }
+
+    function dibujarRutaReal(
+      path
+    ) {
+      limpiarPolilineaRuta();
+
+      if (
+        !Array.isArray(path) ||
+        !path.length ||
+        !mapa
+      ) {
+        return;
+      }
+
+      polilineaRutaDestino =
+        new google.maps.Polyline({
+          map: mapa,
+          path: path.map(
+            (punto) => ({
+              lat: Number(punto.lat),
+              lng: Number(punto.lng)
+            })
+          ),
+          geodesic: false,
+          strokeColor: "#2563EB",
+          strokeOpacity: 0.9,
+          strokeWeight: 5,
+          zIndex: 35
+        });
+    }
+
+    function aplicarRutaCalculada(
+      datosRuta,
+      desdeCache = false
+    ) {
+      if (!destinoActual) return;
+
+      const llegada =
+        new Date(
+          Date.now() +
+          datosRuta.duracionSegundos *
+          1000
+        );
+
       destinoActual = {
-        lat: destino.lat,
-        lng: destino.lng,
-        distanciaMetros: Math.round(distancia),
+        ...destinoActual,
+        distanciaMetros:
+          datosRuta.distanciaMetros,
+        distanciaRutaMetros:
+          datosRuta.distanciaMetros,
+        duracionRutaSegundos:
+          datosRuta.duracionSegundos,
+        duracionSinTraficoSegundos:
+          datosRuta.duracionSinTraficoSegundos,
+        horaEstimadaLlegadaISO:
+          llegada.toISOString(),
+        rutaCalculadaEnISO:
+          new Date().toISOString(),
+        rutaCalculadaConTrafico: true,
+        tipoDistancia: "ruta",
+        estadoRuta: "lista"
+      };
+
+      dibujarRutaReal(
+        datosRuta.path
+      );
+
+      actualizarResumenRuta(
+        "lista",
+        {
+          distancia:
+            datosRuta.distanciaMetros,
+          duracion:
+            datosRuta.duracionSegundos,
+          llegada,
+          mensaje:
+            desdeCache
+              ? "Ruta recuperada de esta sesión. Incluye distancia por calles y tiempo estimado."
+              : "Ruta calculada por calles con tiempo estimado según las condiciones actuales."
+        }
+      );
+
+      $("chipDistancia").classList.remove(
+        "chip-ruta-fallback"
+      );
+      $("chipDistancia").classList.add(
+        "chip-ruta-real"
+      );
+      $("chipDistancia").innerHTML = `
+        <strong>Ruta por carretera</strong>
+        ${formatearDistancia(
+          datosRuta.distanciaMetros
+        )} · ${formatearDuracionRuta(
+          datosRuta.duracionSegundos
+        )}<br>
+        Llegada aprox. ${formatearHoraRuta(
+          llegada
+        )}
+      `;
+
+      aplicarValidacionZona(
+        datosRuta.distanciaMetros,
+        "ruta"
+      );
+
+      $("btnRecalcularRuta").disabled =
+        false;
+    }
+
+    function aplicarFallbackRuta(
+      error
+    ) {
+      if (!destinoActual) return;
+
+      limpiarPolilineaRuta();
+
+      const distanciaDirecta =
+        destinoActual.distanciaDirectaMetros;
+
+      destinoActual = {
+        ...destinoActual,
+        distanciaMetros:
+          distanciaDirecta,
+        distanciaRutaMetros: null,
+        duracionRutaSegundos: null,
+        duracionSinTraficoSegundos: null,
+        horaEstimadaLlegadaISO: null,
+        rutaCalculadaEnISO: null,
+        rutaCalculadaConTrafico: false,
+        tipoDistancia: "linea_recta",
+        estadoRuta: "error"
+      };
+
+      actualizarResumenRuta(
+        "advertencia",
+        {
+          distancia:
+            distanciaDirecta,
+          mensaje:
+            "No se pudo calcular la ruta por carretera. Se muestra temporalmente la distancia en línea recta. Revisa que Routes API esté habilitada y pulsa Recalcular."
+        }
+      );
+
+      $("chipDistancia").classList.remove(
+        "chip-ruta-real"
+      );
+      $("chipDistancia").classList.add(
+        "chip-ruta-fallback"
+      );
+      $("chipDistancia").innerHTML = `
+        <strong>Ruta no disponible</strong>
+        ${formatearDistancia(
+          distanciaDirecta
+        )} en línea recta
+      `;
+
+      aplicarValidacionZona(
+        distanciaDirecta,
+        "linea_recta"
+      );
+
+      $("btnRecalcularRuta").disabled =
+        false;
+
+      console.error(
+        "No se pudo calcular la ruta real:",
+        error
+      );
+    }
+
+    async function calcularRutaPorCarretera(
+      destino,
+      forzar = false
+    ) {
+      if (
+        !destino ||
+        !mapa
+      ) {
+        return;
+      }
+
+      const clave =
+        claveRuta(destino);
+
+      if (
+        !forzar &&
+        cacheRutas.has(clave)
+      ) {
+        ultimaClaveRuta = clave;
+        aplicarRutaCalculada(
+          cacheRutas.get(clave),
+          true
+        );
+        return;
+      }
+
+      const secuenciaActual =
+        ++secuenciaRuta;
+
+      ultimaClaveRuta = clave;
+      limpiarPolilineaRuta();
+
+      if (destinoActual) {
+        destinoActual.estadoRuta =
+          "calculando";
+      }
+
+      $("btnCrearPedido").disabled =
+        true;
+      $("btnRecalcularRuta").disabled =
+        true;
+
+      actualizarResumenRuta(
+        "calculando",
+        {
+          distancia:
+            destino.distanciaDirectaMetros,
+          mensaje:
+            "Calculando la ruta real por calles y el tiempo estimado de manejo..."
+        }
+      );
+
+      $("chipDistancia").classList.remove(
+        "chip-ruta-real",
+        "chip-ruta-fallback"
+      );
+      $("chipDistancia").innerHTML = `
+        <strong>Ruta por carretera</strong>
+        Calculando...
+      `;
+
+      try {
+        if (!RouteClass) {
+          const biblioteca =
+            await google.maps.importLibrary(
+              "routes"
+            );
+
+          RouteClass =
+            biblioteca.Route;
+        }
+
+        const respuesta =
+          await RouteClass.computeRoutes({
+            origin: {
+              lat: CONFIG.empresa.lat,
+              lng: CONFIG.empresa.lng
+            },
+            destination: {
+              lat: Number(destino.lat),
+              lng: Number(destino.lng)
+            },
+            travelMode: "DRIVING",
+            routingPreference:
+              "TRAFFIC_AWARE",
+            departureTime:
+              new Date(),
+            language: "es-MX",
+            units: "METRIC",
+            fields: [
+              "distanceMeters",
+              "durationMillis",
+              "staticDurationMillis",
+              "path"
+            ]
+          });
+
+        if (
+          secuenciaActual !==
+          secuenciaRuta ||
+          !destinoActual ||
+          claveRuta(destinoActual) !==
+          clave
+        ) {
+          return;
+        }
+
+        const ruta =
+          respuesta.routes?.[0];
+
+        if (
+          !ruta ||
+          !Number.isFinite(
+            ruta.distanceMeters
+          ) ||
+          !Number.isFinite(
+            ruta.durationMillis
+          )
+        ) {
+          throw new Error(
+            "Google no devolvió una ruta válida."
+          );
+        }
+
+        const datosRuta = {
+          distanciaMetros:
+            Math.round(
+              ruta.distanceMeters
+            ),
+          duracionSegundos:
+            Math.max(
+              1,
+              Math.round(
+                ruta.durationMillis /
+                1000
+              )
+            ),
+          duracionSinTraficoSegundos:
+            Number.isFinite(
+              ruta.staticDurationMillis
+            )
+              ? Math.max(
+                  1,
+                  Math.round(
+                    ruta.staticDurationMillis /
+                    1000
+                  )
+                )
+              : null,
+          path:
+            Array.from(
+              ruta.path || []
+            ).map(
+              (punto) => ({
+                lat: Number(punto.lat),
+                lng: Number(punto.lng)
+              })
+            )
+        };
+
+        cacheRutas.set(
+          clave,
+          datosRuta
+        );
+
+        aplicarRutaCalculada(
+          datosRuta
+        );
+      } catch (error) {
+        if (
+          secuenciaActual !==
+          secuenciaRuta
+        ) {
+          return;
+        }
+
+        aplicarFallbackRuta(
+          error
+        );
+      }
+    }
+
+    function programarCalculoRuta(
+      destino
+    ) {
+      if (temporizadorRuta) {
+        clearTimeout(
+          temporizadorRuta
+        );
+      }
+
+      temporizadorRuta =
+        window.setTimeout(() => {
+          calcularRutaPorCarretera(
+            destino
+          );
+        }, 260);
+    }
+
+    function evaluarDestino(destino) {
+      const distanciaDirecta =
+        Math.round(
+          calcularDistanciaMetros(
+            CONFIG.empresa,
+            destino
+          )
+        );
+
+      const conservarRuta =
+        mismaPosicion(
+          destinoActual,
+          destino
+        );
+
+      const rutaPrevia =
+        conservarRuta
+          ? {
+              distanciaMetros:
+                destinoActual?.distanciaMetros,
+              distanciaRutaMetros:
+                destinoActual?.distanciaRutaMetros,
+              duracionRutaSegundos:
+                destinoActual?.duracionRutaSegundos,
+              duracionSinTraficoSegundos:
+                destinoActual?.duracionSinTraficoSegundos,
+              horaEstimadaLlegadaISO:
+                destinoActual?.horaEstimadaLlegadaISO,
+              rutaCalculadaEnISO:
+                destinoActual?.rutaCalculadaEnISO,
+              rutaCalculadaConTrafico:
+                destinoActual?.rutaCalculadaConTrafico,
+              tipoDistancia:
+                destinoActual?.tipoDistancia,
+              estadoRuta:
+                destinoActual?.estadoRuta
+            }
+          : {};
+
+      destinoActual = {
+        lat: Number(destino.lat),
+        lng: Number(destino.lng),
+        distanciaDirectaMetros:
+          distanciaDirecta,
+        distanciaMetros:
+          distanciaDirecta,
         metodoUbicacion:
           destino.metodoUbicacion ||
           destinoActual?.metodoUbicacion ||
@@ -551,77 +1404,51 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
         direccionMapa:
           destino.direccionMapa ??
           destinoActual?.direccionMapa ??
-          ""
+          "",
+        ...rutaPrevia
       };
-
-      $("chipDistancia").innerHTML = `
-        <strong>Destino</strong>
-        ${formatearDistancia(distancia)} desde la ferretería
-      `;
 
       const coordenadas =
         `${destinoActual.lat.toFixed(6)}, ` +
         `${destinoActual.lng.toFixed(6)}`;
 
-      if (distancia <= CONFIG.zona.radioHabitualMetros) {
-        mostrarEstado(
-          $("zonaEstado"),
-          `Destino dentro de la zona habitual: ${formatearDistancia(distancia)}.`,
-          "ok"
-        );
-
-        $("btnCrearPedido").disabled = false;
-
-        actualizarEstadoPin(
-          "confirmado",
-          `<strong>Destino confirmado.</strong><br>` +
-          `Coordenadas: ${coordenadas}` +
-          (
-            destinoActual.direccionMapa
-              ? `<br>Referencia de Google: ${destinoActual.direccionMapa}`
-              : ""
-          )
-        );
-
-        return;
-      }
-
-      if (distancia <= CONFIG.zona.radioMaximoMetros) {
-        mostrarEstado(
-          $("zonaEstado"),
-          `El destino está fuera del radio habitual de 1.5 km, pero sigue dentro del máximo configurado: ${formatearDistancia(distancia)}.`,
-          "alerta"
-        );
-
-        $("btnCrearPedido").disabled = false;
-
-        actualizarEstadoPin(
-          "confirmado",
-          `<strong>Destino confirmado fuera de la zona habitual.</strong><br>` +
-          `Coordenadas: ${coordenadas}` +
-          (
-            destinoActual.direccionMapa
-              ? `<br>Referencia de Google: ${destinoActual.direccionMapa}`
-              : ""
-          )
-        );
-
-        return;
-      }
-
-      mostrarEstado(
-        $("zonaEstado"),
-        `Atención: el destino está a ${formatearDistancia(distancia)}. Corrige el marcador antes de crear el pedido.`,
-        "error"
-      );
-
-      $("btnCrearPedido").disabled = true;
-
       actualizarEstadoPin(
-        "error",
-        `<strong>El punto está fuera del radio permitido.</strong><br>` +
-        `Coordenadas: ${coordenadas}`
+        "confirmado",
+        `<strong>Destino confirmado.</strong><br>` +
+        `Coordenadas: ${coordenadas}` +
+        (
+          destinoActual.direccionMapa
+            ? `<br>Referencia de Google: ${destinoActual.direccionMapa}`
+            : ""
+        )
       );
+
+      if (
+        conservarRuta &&
+        destinoActual.estadoRuta ===
+        "lista" &&
+        Number.isFinite(
+          destinoActual.distanciaRutaMetros
+        )
+      ) {
+        aplicarValidacionZona(
+          destinoActual.distanciaRutaMetros,
+          "ruta"
+        );
+        return;
+      }
+
+      if (
+        conservarRuta &&
+        destinoActual.estadoRuta ===
+        "calculando"
+      ) {
+        return;
+      }
+
+      programarCalculoRuta({
+        ...destinoActual
+      });
     }
 
     async function obtenerDireccionDelPin(
@@ -758,14 +1585,28 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
         const direccionCompleta =
           obtenerDireccionCompleta();
 
-        const respuesta = await geocoder.geocode({
+        const solicitudGeocodificacion = {
           address: direccionCompleta,
-          bounds: crearBoundsLocales(),
           region: "mx",
           componentRestrictions: {
             country: "MX"
           }
-        });
+        };
+
+        /*
+         * Solo San Andrés utiliza el sesgo local.
+         * Para otros municipios no se restringe la
+         * búsqueda alrededor de la ferretería.
+         */
+        if (esDestinoSanAndres()) {
+          solicitudGeocodificacion.bounds =
+            crearBoundsLocales();
+        }
+
+        const respuesta =
+          await geocoder.geocode(
+            solicitudGeocodificacion
+          );
 
         if (
           secuenciaActual !==
@@ -871,6 +1712,17 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
       );
 
       actualizarBotonesTipoMapa();
+    }
+
+    function regresarAlOrigen() {
+      if (!mapa) return;
+
+      mapa.panTo({
+        lat: CONFIG.empresa.lat,
+        lng: CONFIG.empresa.lng
+      });
+
+      mapa.setZoom(17);
     }
 
     window.addEventListener("load", () => {
@@ -1782,6 +2634,129 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
         );
     }
 
+    function renderizarCallesSanAndres(
+      nombres,
+      origen
+    ) {
+      const select =
+        $("selectCalle");
+
+      const valorAnterior =
+        select.value;
+
+      select.innerHTML =
+        '<option value="">-- Seleccionar calle --</option>';
+
+      nombres.forEach((nombre) => {
+        const opcion =
+          document.createElement(
+            "option"
+          );
+
+        opcion.value = nombre;
+        opcion.textContent = nombre;
+        select.appendChild(opcion);
+      });
+
+      if (
+        valorAnterior &&
+        nombres.includes(
+          valorAnterior
+        )
+      ) {
+        select.value =
+          valorAnterior;
+      }
+
+      const estado =
+        $("estadoCatalogoCalles");
+
+      estado.className =
+        "catalogo-calles-estado " +
+        (
+          origen === "firestore"
+            ? "ok"
+            : "alerta"
+        );
+
+      estado.textContent =
+        origen === "firestore"
+          ? `${nombres.length} calles cargadas desde Firestore.`
+          : `${nombres.length} calles cargadas desde el respaldo local.`;
+    }
+
+    async function cargarCallesSanAndres() {
+      try {
+        const snapshot =
+          await getDocs(
+            collection(
+              db,
+              "calles"
+            )
+          );
+
+        const nombres =
+          snapshot.docs
+            .map((documento) => {
+              const datos =
+                documento.data();
+
+              if (
+                datos.activo === false
+              ) {
+                return "";
+              }
+
+              return escaparTexto(
+                datos.nombre ||
+                datos.calle ||
+                datos.descripcion ||
+                documento.id
+              );
+            })
+            .filter(Boolean)
+            .filter(
+              (nombre, indice, lista) =>
+                lista.indexOf(nombre) ===
+                indice
+            )
+            .sort(
+              (a, b) =>
+                a.localeCompare(
+                  b,
+                  "es"
+                )
+            );
+
+        if (!nombres.length) {
+          throw new Error(
+            "La colección calles está vacía."
+          );
+        }
+
+        renderizarCallesSanAndres(
+          nombres,
+          "firestore"
+        );
+      } catch (error) {
+        console.warn(
+          "No se pudo leer la colección calles; se usará el respaldo local:",
+          error
+        );
+
+        renderizarCallesSanAndres(
+          [...callesRespaldo].sort(
+            (a, b) =>
+              a.localeCompare(
+                b,
+                "es"
+              )
+          ),
+          "respaldo"
+        );
+      }
+    }
+
     async function cargarClientes() {
       try {
         const consulta = query(
@@ -1878,7 +2853,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
     }
 
     function cargarClienteSeleccionado() {
-      const indice = $("selectCliente").value;
+      const indice =
+        $("selectCliente").value;
 
       if (indice === "") {
         limpiarFormularioCliente();
@@ -1886,30 +2862,95 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
       }
 
       const cliente =
-        listaClientes[Number(indice)];
+        listaClientes[
+          Number(indice)
+        ];
 
-      $("docId").value = cliente.id;
+      $("docId").value =
+        cliente.id;
+
       $("cliente").value =
         cliente.nombre || "";
 
-      const direccion =
-        cliente.direccion || "";
-
-      const coincidencia =
-        direccion.match(
-          /^(.*)\s+([A-Za-z0-9\-\/]+)$/
+      const tipoEntrega =
+        cliente.tipoEntrega ||
+        (
+          cliente.localidad &&
+          String(
+            cliente.localidad
+          ).toLowerCase() !==
+          CONFIG.zona.localidad.toLowerCase()
+            ? "otro_municipio"
+            : "san_andres"
         );
 
-      if (coincidencia) {
+      $("tipoDestino").value =
+        tipoEntrega === "san_andres"
+          ? "san_andres"
+          : "otro_municipio";
+
+      actualizarModoDireccion(false);
+
+      if (
+        $("tipoDestino").value ===
+        "san_andres"
+      ) {
+        const direccion =
+          cliente.direccionCorta ||
+          cliente.direccion ||
+          "";
+
+        const coincidencia =
+          direccion.match(
+            /^(.*)\s+([A-Za-z0-9\-\/]+)$/
+          );
+
         $("selectCalle").value =
-          coincidencia[1].trim();
+          cliente.calle ||
+          (
+            coincidencia
+              ? coincidencia[1].trim()
+              : ""
+          );
 
         $("numExterior").value =
-          coincidencia[2].trim();
+          cliente.numeroExterior ||
+          (
+            coincidencia
+              ? coincidencia[2].trim()
+              : ""
+          );
+
+        $("referenciasSanAndres").value =
+          cliente.referencias || "";
       } else {
-        $("selectCalle").value = "";
-        $("numExterior").value =
-          direccion;
+        $("calleExterna").value =
+          cliente.calle ||
+          cliente.direccionCorta ||
+          cliente.direccion ||
+          "";
+
+        $("numeroExterno").value =
+          cliente.numeroExterior || "";
+
+        $("coloniaExterna").value =
+          cliente.colonia || "";
+
+        $("localidadExterna").value =
+          cliente.localidad || "";
+
+        $("municipioExterno").value =
+          cliente.municipio || "";
+
+        $("estadoExterno").value =
+          cliente.estado ||
+          CONFIG.zona.estado;
+
+        $("codigoPostalExterno").value =
+          cliente.codigoPostal || "";
+
+        $("referenciasExterna").value =
+          cliente.referencias || "";
       }
 
       const latitud = Number(
@@ -1951,6 +2992,17 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
     function invalidarDestino() {
       secuenciaGeocodificacion += 1;
       secuenciaGeocodificacionInversa += 1;
+      secuenciaRuta += 1;
+
+      if (temporizadorRuta) {
+        clearTimeout(
+          temporizadorRuta
+        );
+        temporizadorRuta = null;
+      }
+
+      ultimaClaveRuta = "";
+      limpiarPolilineaRuta();
       desactivarModoPinManual();
       destinoActual = null;
       $("btnCrearPedido").disabled = true;
@@ -1974,14 +3026,42 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
         "",
         "La dirección cambió. Vuelve a buscarla o selecciona el punto exacto en el mapa."
       );
+
+      actualizarResumenRuta(
+        "",
+        {
+          mensaje:
+            "Selecciona un destino para calcular la ruta."
+        }
+      );
+
+      $("btnRecalcularRuta").disabled =
+        true;
     }
 
     function limpiarFormularioCliente() {
       $("docId").value = "";
       $("cliente").value = "";
+      $("selectCliente").value = "";
+
+      $("tipoDestino").value =
+        "san_andres";
+
       $("selectCalle").value = "";
       $("numExterior").value = "";
-      $("selectCliente").value = "";
+      $("referenciasSanAndres").value = "";
+
+      $("calleExterna").value = "";
+      $("numeroExterno").value = "";
+      $("coloniaExterna").value = "";
+      $("localidadExterna").value = "";
+      $("municipioExterno").value = "";
+      $("estadoExterno").value =
+        CONFIG.zona.estado;
+      $("codigoPostalExterno").value = "";
+      $("referenciasExterna").value = "";
+
+      actualizarModoDireccion(false);
       invalidarDestino();
     }
 
@@ -1999,13 +3079,41 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
         return;
       }
 
-      const direccion = obtenerDireccionCorta();
+      const datosDireccion =
+        obtenerDatosDireccion();
 
       await updateDoc(
         doc(db, "clientes", id),
         {
           nombre,
-          direccion,
+          direccion:
+            datosDireccion.direccionCorta,
+          direccionCorta:
+            datosDireccion.direccionCorta,
+          direccionCompleta:
+            datosDireccion.direccionCompleta,
+          tipoEntrega:
+            datosDireccion.tipoEntrega,
+          zonaEntrega:
+            datosDireccion.zonaEntrega,
+          calle:
+            datosDireccion.calle,
+          numeroExterior:
+            datosDireccion.numeroExterior,
+          colonia:
+            datosDireccion.colonia,
+          localidad:
+            datosDireccion.localidad,
+          municipio:
+            datosDireccion.municipio,
+          estado:
+            datosDireccion.estado,
+          codigoPostal:
+            datosDireccion.codigoPostal,
+          pais:
+            datosDireccion.pais,
+          referencias:
+            datosDireccion.referencias,
           destino: destinoActual
             ? {
                 latitud: destinoActual.lat,
@@ -2037,13 +3145,41 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
         return;
       }
 
-      const direccion = obtenerDireccionCorta();
+      const datosDireccion =
+        obtenerDatosDireccion();
 
       const referencia = await addDoc(
         collection(db, "clientes"),
         {
           nombre,
-          direccion,
+          direccion:
+            datosDireccion.direccionCorta,
+          direccionCorta:
+            datosDireccion.direccionCorta,
+          direccionCompleta:
+            datosDireccion.direccionCompleta,
+          tipoEntrega:
+            datosDireccion.tipoEntrega,
+          zonaEntrega:
+            datosDireccion.zonaEntrega,
+          calle:
+            datosDireccion.calle,
+          numeroExterior:
+            datosDireccion.numeroExterior,
+          colonia:
+            datosDireccion.colonia,
+          localidad:
+            datosDireccion.localidad,
+          municipio:
+            datosDireccion.municipio,
+          estado:
+            datosDireccion.estado,
+          codigoPostal:
+            datosDireccion.codigoPostal,
+          pais:
+            datosDireccion.pais,
+          referencias:
+            datosDireccion.referencias,
           destino: destinoActual
             ? {
                 latitud: destinoActual.lat,
@@ -2122,15 +3258,24 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
       }
 
       if (
+        esDestinoSanAndres() &&
         destinoActual.distanciaMetros >
         CONFIG.zona.radioMaximoMetros
       ) {
-        alert("El destino está fuera del radio máximo configurado.");
+        alert(
+          "El destino está fuera del área de San Andrés. Cambia el área de entrega a “Otra localidad o municipio”."
+        );
         return;
       }
 
-      const direccionCorta = obtenerDireccionCorta();
-      const direccionCompleta = obtenerDireccionCompleta();
+      const datosDireccion =
+        obtenerDatosDireccion();
+
+      const direccionCorta =
+        datosDireccion.direccionCorta;
+
+      const direccionCompleta =
+        datosDireccion.direccionCompleta;
 
       const repartidor = listaRepartidores.find(
         (item) => item.uid === repartidorUID
@@ -2154,6 +3299,30 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
               destinoActual.direccionMapa || "",
             metodoUbicacion:
               destinoActual.metodoUbicacion || "desconocido",
+            tipoEntrega:
+              datosDireccion.tipoEntrega,
+            zonaEntrega:
+              datosDireccion.zonaEntrega,
+            calle:
+              datosDireccion.calle,
+            numeroExterior:
+              datosDireccion.numeroExterior,
+            colonia:
+              datosDireccion.colonia,
+            localidadDestino:
+              datosDireccion.localidad,
+            municipioDestino:
+              datosDireccion.municipio,
+            estadoDestino:
+              datosDireccion.estado,
+            codigoPostal:
+              datosDireccion.codigoPostal,
+            paisDestino:
+              datosDireccion.pais,
+            referencias:
+              datosDireccion.referencias,
+            requiereAutorizacion:
+              !datosDireccion.esLocalSanAndres,
             notasPedido,
 
             origen: {
@@ -2173,12 +3342,36 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
 
             distanciaEstimadaMetros:
               destinoActual.distanciaMetros,
+            distanciaRutaMetros:
+              destinoActual.distanciaRutaMetros ?? null,
+            distanciaDirectaMetros:
+              destinoActual.distanciaDirectaMetros,
+            duracionRutaSegundos:
+              destinoActual.duracionRutaSegundos ?? null,
+            duracionSinTraficoSegundos:
+              destinoActual.duracionSinTraficoSegundos ?? null,
+            horaEstimadaLlegadaISO:
+              destinoActual.horaEstimadaLlegadaISO ?? null,
+            rutaCalculadaEnISO:
+              destinoActual.rutaCalculadaEnISO ?? null,
+            rutaCalculadaConTrafico:
+              destinoActual.rutaCalculadaConTrafico === true,
+            tipoDistancia:
+              destinoActual.tipoDistancia || "linea_recta",
 
             zonaOperacion: {
-              localidad: CONFIG.zona.localidad,
-              municipio: CONFIG.zona.municipio,
-              estado: CONFIG.zona.estado,
-              pais: CONFIG.zona.pais
+              tipoEntrega:
+                datosDireccion.tipoEntrega,
+              zonaEntrega:
+                datosDireccion.zonaEntrega,
+              localidad:
+                datosDireccion.localidad,
+              municipio:
+                datosDireccion.municipio,
+              estado:
+                datosDireccion.estado,
+              pais:
+                datosDireccion.pais
             },
 
             estado: "asignado",
@@ -2215,6 +3408,16 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
             direccionCorta,
             metodoUbicacion:
               destinoActual.metodoUbicacion || "desconocido",
+            tipoEntrega:
+              datosDireccion.tipoEntrega,
+            zonaEntrega:
+              datosDireccion.zonaEntrega,
+            localidadDestino:
+              datosDireccion.localidad,
+            municipioDestino:
+              datosDireccion.municipio,
+            estadoDestino:
+              datosDireccion.estado,
             tieneNotas: Boolean(notasPedido),
             estado: "asignado",
 
@@ -2244,6 +3447,22 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
 
             distanciaEstimadaMetros:
               destinoActual.distanciaMetros,
+            distanciaRutaMetros:
+              destinoActual.distanciaRutaMetros ?? null,
+            distanciaDirectaMetros:
+              destinoActual.distanciaDirectaMetros,
+            duracionRutaSegundos:
+              destinoActual.duracionRutaSegundos ?? null,
+            duracionSinTraficoSegundos:
+              destinoActual.duracionSinTraficoSegundos ?? null,
+            horaEstimadaLlegadaISO:
+              destinoActual.horaEstimadaLlegadaISO ?? null,
+            rutaCalculadaEnISO:
+              destinoActual.rutaCalculadaEnISO ?? null,
+            rutaCalculadaConTrafico:
+              destinoActual.rutaCalculadaConTrafico === true,
+            tipoDistancia:
+              destinoActual.tipoDistancia || "linea_recta",
 
             fechaCreacion: serverTimestamp(),
             ultimaActualizacion: serverTimestamp()
@@ -2253,13 +3472,34 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
         $("pedidoActual").innerHTML = `
           <strong>Pedido:</strong> ${pedidoActualId}<br>
           <strong>Cliente:</strong> ${cliente}<br>
+          <strong>Tipo de entrega:</strong> ${
+            datosDireccion.esLocalSanAndres
+              ? "San Andrés"
+              : `Fuera de San Andrés · ${datosDireccion.municipio}`
+          }<br>
+          <strong>Dirección:</strong> ${direccionCorta}<br>
+          ${
+            datosDireccion.referencias
+              ? `<strong>Referencias:</strong> ${datosDireccion.referencias}<br>`
+              : ""
+          }
           <strong>Repartidor:</strong> ${
             repartidor?.nombre ||
             repartidor?.correo ||
             repartidorUID
           }<br>
-          <strong>Distancia:</strong> ${
+          <strong>Distancia por carretera:</strong> ${
             formatearDistancia(destinoActual.distanciaMetros)
+          }<br>
+          <strong>Tiempo estimado:</strong> ${
+            formatearDuracionRuta(
+              destinoActual.duracionRutaSegundos
+            )
+          }<br>
+          <strong>Llegada aproximada:</strong> ${
+            formatearHoraRuta(
+              destinoActual.horaEstimadaLlegadaISO
+            )
           }<br>
           <strong>Ubicación:</strong> ${
             destinoActual.metodoUbicacion === "manual"
@@ -2283,7 +3523,23 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
           cliente,
           direccion: direccionCompleta,
           direccionCorta,
+          tipoEntrega:
+            datosDireccion.tipoEntrega,
+          localidadDestino:
+            datosDireccion.localidad,
+          municipioDestino:
+            datosDireccion.municipio,
+          referencias:
+            datosDireccion.referencias,
           notasPedido,
+          distanciaEstimadaMetros:
+            destinoActual.distanciaMetros,
+          distanciaRutaMetros:
+            destinoActual.distanciaRutaMetros ?? null,
+          duracionRutaSegundos:
+            destinoActual.duracionRutaSegundos ?? null,
+          horaEstimadaLlegadaISO:
+            destinoActual.horaEstimadaLlegadaISO ?? null,
           destino: {
             latitud: destinoActual.lat,
             longitud: destinoActual.lng
@@ -2606,6 +3862,38 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
         </div>
 
         <div class="ticket-fila">
+          <span>Área de entrega</span>
+          <strong>${
+            pedido.tipoEntrega ===
+            "san_andres"
+              ? "San Andrés"
+              : escaparTexto(
+                  [
+                    pedido.localidadDestino,
+                    pedido.municipioDestino,
+                    pedido.estadoDestino
+                  ]
+                    .filter(Boolean)
+                    .join(", ") ||
+                  "Fuera de San Andrés"
+                )
+          }</strong>
+        </div>
+
+        ${
+          pedido.referencias
+            ? `
+              <div class="ticket-fila">
+                <span>Referencias</span>
+                <strong>${escaparTexto(
+                  pedido.referencias
+                )}</strong>
+              </div>
+            `
+            : ""
+        }
+
+        <div class="ticket-fila">
           <span>Contenido / notas</span>
           <strong>${notasComoHtml(pedido.notasPedido)}</strong>
         </div>
@@ -2623,9 +3911,34 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
         </div>
 
         <div class="ticket-fila">
-          <span>Distancia estimada</span>
+          <span>${
+            pedido.distanciaRutaMetros !== null &&
+            pedido.distanciaRutaMetros !== undefined &&
+            Number.isFinite(
+              Number(pedido.distanciaRutaMetros)
+            )
+              ? "Distancia por carretera"
+              : "Distancia estimada"
+          }</span>
           <strong>${formatearDistancia(
-            Number(pedido.distanciaEstimadaMetros)
+            Number(
+              pedido.distanciaRutaMetros ??
+              pedido.distanciaEstimadaMetros
+            )
+          )}</strong>
+        </div>
+
+        <div class="ticket-fila">
+          <span>Tiempo estimado de ruta</span>
+          <strong>${formatearDuracionRuta(
+            Number(pedido.duracionRutaSegundos)
+          )}</strong>
+        </div>
+
+        <div class="ticket-fila">
+          <span>Llegada aproximada</span>
+          <strong>${formatearHoraRuta(
+            pedido.horaEstimadaLlegadaISO
           )}</strong>
         </div>
 
@@ -3308,9 +4621,19 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
                 </p>
 
                 <p>
-                  <strong>Distancia:</strong>
+                  <strong>Distancia por carretera:</strong>
                   ${formatearDistancia(
-                    Number(pedido.distanciaEstimadaMetros)
+                    Number(
+                      pedido.distanciaRutaMetros ??
+                      pedido.distanciaEstimadaMetros
+                    )
+                  )}
+                </p>
+
+                <p>
+                  <strong>Tiempo estimado:</strong>
+                  ${formatearDuracionRuta(
+                    Number(pedido.duracionRutaSegundos)
                   )}
                 </p>
 
@@ -3752,7 +5075,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
 
         await Promise.all([
           cargarClientes(),
-          cargarRepartidores()
+          cargarRepartidores(),
+          cargarCallesSanAndres()
         ]);
 
         iniciarEscuchaPedidosActivos();
@@ -3778,14 +5102,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
         );
       }
     });
-
-    calles.forEach((calle) => {
-      const opcion = document.createElement("option");
-      opcion.value = calle;
-      opcion.textContent = calle;
-      $("selectCalle").appendChild(opcion);
-    });
-
 
     $("btnCerrarModalTicket").addEventListener("click", cerrarTicket);
     $("btnCerrarTicketInferior").addEventListener("click", cerrarTicket);
@@ -3856,6 +5172,30 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
           pedidoRastreoActivoId
         );
       }
+    );
+
+    $("btnRecalcularRuta").addEventListener(
+      "click",
+      () => {
+        if (!destinoActual) {
+          alert(
+            "Primero selecciona un destino."
+          );
+          return;
+        }
+
+        calcularRutaPorCarretera(
+          {
+            ...destinoActual
+          },
+          true
+        );
+      }
+    );
+
+    $("btnRegresarOrigen").addEventListener(
+      "click",
+      regresarAlOrigen
     );
 
     $("btnVistaMapa").addEventListener(
@@ -4004,6 +5344,16 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
         temporizadorRedimensionMapa = null;
       }
 
+      if (temporizadorRuta) {
+        clearTimeout(
+          temporizadorRuta
+        );
+        temporizadorRuta = null;
+      }
+
+      secuenciaRuta += 1;
+      limpiarPolilineaRuta();
+
       for (const marcador of marcadoresRepartidores.values()) {
         marcador.setMap(null);
       }
@@ -4023,5 +5373,30 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
     $("notasPedido").addEventListener("input", actualizarContadorNotasPedido);
     actualizarContadorNotasPedido();
 
-    $("selectCalle").addEventListener("change", invalidarDestino);
-    $("numExterior").addEventListener("input", invalidarDestino);
+    $("tipoDestino").addEventListener(
+      "change",
+      () => actualizarModoDireccion(true)
+    );
+
+    [
+      "selectCalle",
+      "numExterior",
+      "calleExterna",
+      "numeroExterno",
+      "coloniaExterna",
+      "localidadExterna",
+      "municipioExterno",
+      "estadoExterno",
+      "codigoPostalExterno"
+    ].forEach((id) => {
+      const elemento = $(id);
+
+      elemento.addEventListener(
+        elemento.tagName === "SELECT"
+          ? "change"
+          : "input",
+        invalidarDestino
+      );
+    });
+
+    actualizarModoDireccion(false);
