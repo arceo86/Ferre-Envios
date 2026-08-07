@@ -1,4 +1,4 @@
-console.info("Ferretería Granados Mostrador v9.3 cargado");
+console.info("Ferretería Granados Mostrador v9.3.1 · marca dinámica cargado");
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 
@@ -140,6 +140,132 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
     let temporizadorRedimensionMapa = null;
 
     const $ = (id) => document.getElementById(id);
+
+
+    const MARCA_PREDETERMINADA = {
+      nombre: "Ferretería Granados",
+      titulo: "Ferretería Granados",
+      claseBody: "",
+      colorZona: "#ff9800"
+    };
+
+    const MARCA_JARDIN_MARIA = {
+      nombre: "Jardín de María",
+      titulo: "Jardín de María",
+      claseBody: "marca-jardin-maria",
+      colorZona: "#22c55e"
+    };
+
+    function normalizarNombreDespachador(
+      valor
+    ) {
+      return String(valor || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
+        .replace(/\s+/g, " ")
+        .toUpperCase();
+    }
+
+    function iconoPlantaVerde() {
+      return `
+        <svg
+          viewBox="0 0 64 64"
+          role="img"
+          aria-label="Planta verde"
+        >
+          <path
+            d="M31 55V29"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="5"
+            stroke-linecap="round"
+          />
+          <path
+            d="M31 34C17 34 10 25 10 13c13 0 22 7 22 20"
+            fill="currentColor"
+            opacity="0.92"
+          />
+          <path
+            d="M32 29C32 15 41 7 55 7c0 14-8 24-23 24"
+            fill="currentColor"
+          />
+          <path
+            d="M31 45c-10 0-17-6-18-15 10 0 17 5 19 14"
+            fill="currentColor"
+            opacity="0.72"
+          />
+        </svg>
+      `;
+    }
+
+    function aplicarMarcaVisual(
+      despachador = null
+    ) {
+      const nombreNormalizado =
+        normalizarNombreDespachador(
+          despachador?.nombre
+        );
+
+      const esJardinMaria =
+        nombreNormalizado ===
+        "JOSUE BARCO";
+
+      const marca =
+        esJardinMaria
+          ? MARCA_JARDIN_MARIA
+          : MARCA_PREDETERMINADA;
+
+      document.body.classList.remove(
+        "marca-jardin-maria"
+      );
+
+      if (marca.claseBody) {
+        document.body.classList.add(
+          marca.claseBody
+        );
+      }
+
+      const nombreMarca =
+        $("marcaNombre");
+
+      if (nombreMarca) {
+        nombreMarca.textContent =
+          marca.nombre;
+      }
+
+      const icono =
+        $("marcaIcono");
+
+      if (icono) {
+        icono.innerHTML =
+          esJardinMaria
+            ? iconoPlantaVerde()
+            : "🚚";
+      }
+
+      const nombreOrigen =
+        $("nombreOrigenMapa");
+
+      if (nombreOrigen) {
+        nombreOrigen.textContent =
+          marca.nombre;
+      }
+
+      document.title =
+        esJardinMaria
+          ? "Jardín de María | Despacho"
+          : "v9.3.1 | Despacho | Ferretería Granados";
+
+      if (circuloZona) {
+        circuloZona.setOptions({
+          fillColor:
+            marca.colorZona,
+          strokeColor:
+            marca.colorZona
+        });
+      }
+    }
 
     function redimensionarMapaSinCambiarVista() {
       if (!mapa) return;
@@ -1772,13 +1898,20 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
 
       actualizarRepartidoresEnMapa();
 
+      const colorZonaActual =
+        document.body.classList.contains(
+          "marca-jardin-maria"
+        )
+          ? MARCA_JARDIN_MARIA.colorZona
+          : MARCA_PREDETERMINADA.colorZona;
+
       circuloZona = new google.maps.Circle({
         map: mapa,
         center: centro,
         radius: CONFIG.zona.radioHabitualMetros,
-        fillColor: "#ff9800",
+        fillColor: colorZonaActual,
         fillOpacity: 0.08,
-        strokeColor: "#ff9800",
+        strokeColor: colorZonaActual,
         strokeOpacity: 0.65,
         strokeWeight: 2,
         clickable: false
@@ -5054,6 +5187,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
 
     onAuthStateChanged(auth, async (usuario) => {
       if (!usuario) {
+        aplicarMarcaVisual(null);
+
         $("loginPage").classList.remove("oculto");
         $("appPage").classList.add("oculto");
         return;
@@ -5061,6 +5196,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
 
       try {
         const despachador = await obtenerDespachadorAutorizado(usuario);
+
+        aplicarMarcaVisual(
+          despachador
+        );
 
         $("loginPage").classList.add("oculto");
         $("appPage").classList.remove("oculto");
