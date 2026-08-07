@@ -1,4 +1,4 @@
-console.info("Ferretería Granados Mostrador v9.3.3 · GPS fluido cargado");
+console.info("Ferretería Granados Mostrador v9.3.4 · camioneta direccional cargado");
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 
@@ -126,6 +126,15 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
     let temporizadorRepartidoresMapa = null;
     let infoRepartidorMapa = null;
     const marcadoresRepartidores = new Map();
+    const rumbosMarcadores = new Map();
+    const posicionesRumboMarcadores = new Map();
+    let ClaseMarcadorVehiculoRotable = null;
+
+    /*
+     * La imagen de la camioneta mira hacia la izquierda cuando rotation=0.
+     * +90° hace que el frente de la camioneta coincida con rumbo Norte (0°).
+     */
+    const OFFSET_RUMBO_PIN_CAMION = 90;
     const animacionesMarcadores = new Map();
     const objetivosMarcadores = new Map();
 
@@ -141,6 +150,235 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
     let temporizadorRedimensionMapa = null;
 
     const $ = (id) => document.getElementById(id);
+
+    function obtenerClaseMarcadorVehiculoRotable() {
+      if (ClaseMarcadorVehiculoRotable) {
+        return ClaseMarcadorVehiculoRotable;
+      }
+
+      ClaseMarcadorVehiculoRotable = class extends google.maps.OverlayView {
+        constructor({
+          map,
+          position,
+          title = "Repartidor",
+          imageUrl,
+          width = 56,
+          height = 37,
+          zIndex = 40,
+          heading = 0
+        }) {
+          super();
+          this.position = new google.maps.LatLng(position);
+          this.title = title;
+          this.imageUrl = imageUrl;
+          this.width = width;
+          this.height = height;
+          this.zIndex = zIndex;
+          this.visible = true;
+          this.div = null;
+          this.img = null;
+          this.rotacionContinua = null;
+          this.heading = heading;
+          this.listenersDom = [];
+          this.setMap(map);
+        }
+
+        onAdd() {
+          const div = document.createElement("div");
+          div.style.position = "absolute";
+          div.style.width = `${this.width}px`;
+          div.style.height = `${this.height}px`;
+          div.style.cursor = "pointer";
+          div.style.userSelect = "none";
+          div.style.zIndex = String(this.zIndex);
+          div.style.display = this.visible ? "block" : "none";
+          div.title = this.title;
+
+          const img = document.createElement("img");
+          img.src = this.imageUrl;
+          img.alt = this.title;
+          img.draggable = false;
+          img.style.width = "100%";
+          img.style.height = "100%";
+          img.style.objectFit = "contain";
+          img.style.display = "block";
+          img.style.pointerEvents = "none";
+          img.style.transformOrigin = "50% 50%";
+          img.style.transition = "transform 420ms linear";
+          img.style.filter = "drop-shadow(0 2px 2px rgba(0,0,0,.28))";
+
+          div.appendChild(img);
+          this.div = div;
+          this.img = img;
+
+          this.getPanes().overlayMouseTarget.appendChild(div);
+          this.setHeading(this.heading);
+
+          this.listenersDom.forEach(({ tipo, funcion }) => {
+            div.addEventListener(tipo, funcion);
+          });
+        }
+
+        draw() {
+          if (!this.div || !this.position) return;
+
+          const proyeccion = this.getProjection();
+          if (!proyeccion) return;
+
+          const pixel = proyeccion.fromLatLngToDivPixel(this.position);
+          if (!pixel) return;
+
+          /*
+           * Se rota alrededor del centro del vehículo. Esto evita que
+           * la imagen "orbite" alrededor del punto GPS al dar vuelta.
+           */
+          this.div.style.left = `${pixel.x - this.width / 2}px`;
+          this.div.style.top = `${pixel.y - this.height / 2}px`;
+        }
+
+        onRemove() {
+          this.div?.remove();
+          this.div = null;
+          this.img = null;
+        }
+
+        setPosition(position) {
+          this.position = position instanceof google.maps.LatLng
+            ? position
+            : new google.maps.LatLng(position);
+          this.draw();
+        }
+
+        getPosition() {
+          return this.position;
+        }
+
+        setVisible(visible) {
+          this.visible = Boolean(visible);
+          if (this.div) {
+            this.div.style.display = this.visible ? "block" : "none";
+          }
+        }
+
+        getVisible() {
+          return this.visible;
+        }
+
+        setTitle(title) {
+          this.title = String(title || "Repartidor");
+          if (this.div) this.div.title = this.title;
+          if (this.img) this.img.alt = this.title;
+        }
+
+        setHeading(valor) {
+          const heading = ((Number(valor) % 360) + 360) % 360;
+          this.heading = heading;
+
+          const objetivoBase = heading + OFFSET_RUMBO_PIN_CAMION;
+
+          if (this.rotacionContinua === null) {
+            this.rotacionContinua = objetivoBase;
+          } else {
+            const actualNormalizado =
+              ((this.rotacionContinua % 360) + 360) % 360;
+            const objetivoNormalizado =
+              ((objetivoBase % 360) + 360) % 360;
+
+            /* Girar siempre por el camino angular más corto. */
+            const diferencia =
+              ((objetivoNormalizado - actualNormalizado + 540) % 360) - 180;
+
+            this.rotacionContinua += diferencia;
+          }
+
+          if (this.img) {
+            this.img.style.transform =
+              `rotate(${this.rotacionContinua}deg)`;
+          }
+        }
+
+        addListener(tipo, funcion) {
+          this.listenersDom.push({ tipo, funcion });
+
+          if (this.div) {
+            this.div.addEventListener(tipo, funcion);
+          }
+
+          return {
+            remove: () => {
+              this.div?.removeEventListener(tipo, funcion);
+              this.listenersDom = this.listenersDom.filter(
+                (item) => item.tipo !== tipo || item.funcion !== funcion
+              );
+            }
+          };
+        }
+      };
+
+      return ClaseMarcadorVehiculoRotable;
+    }
+
+    function crearMarcadorVehiculoRotable(opciones) {
+      const Clase = obtenerClaseMarcadorVehiculoRotable();
+      return new Clase(opciones);
+    }
+
+    function normalizarRumbo(valor) {
+      const numero = Number(valor);
+      if (!Number.isFinite(numero) || numero < 0) return null;
+      return ((numero % 360) + 360) % 360;
+    }
+
+    function calcularRumboEntrePuntos(origen, destino) {
+      if (!origen || !destino) return null;
+
+      const lat1 = radianes(Number(origen.lat));
+      const lat2 = radianes(Number(destino.lat));
+      const dLng = radianes(Number(destino.lng) - Number(origen.lng));
+
+      const y = Math.sin(dLng) * Math.cos(lat2);
+      const x =
+        Math.cos(lat1) * Math.sin(lat2) -
+        Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+
+      const grados = Math.atan2(y, x) * 180 / Math.PI;
+      return ((grados % 360) + 360) % 360;
+    }
+
+    function obtenerRumboVehiculo(ubicacion, posicion, clave) {
+      const rumboAnterior = rumbosMarcadores.get(clave) ?? 0;
+      const posicionAnterior = posicionesRumboMarcadores.get(clave) || null;
+      const rumboGps = normalizarRumbo(ubicacion?.direccion);
+      const velocidad = Math.max(Number(ubicacion?.velocidad || 0), 0);
+
+      let rumbo = rumboAnterior;
+      let distanciaMovimiento = 0;
+
+      if (posicionAnterior) {
+        distanciaMovimiento = calcularDistanciaMetros(
+          posicionAnterior,
+          posicion
+        );
+      }
+
+      /*
+       * En movimiento preferimos el heading real del GPS. A muy baja
+       * velocidad puede oscilar bastante, por lo que calculamos el rumbo
+       * entre las dos coordenadas si realmente avanzó más de 1.5 m.
+       */
+      if (rumboGps !== null && (velocidad >= 0.7 || !posicionAnterior)) {
+        rumbo = rumboGps;
+      } else if (posicionAnterior && distanciaMovimiento >= 1.5) {
+        rumbo =
+          calcularRumboEntrePuntos(posicionAnterior, posicion) ?? rumbo;
+      } else if (rumboGps !== null && !rumbosMarcadores.has(clave)) {
+        rumbo = rumboGps;
+      }
+
+      posicionesRumboMarcadores.set(clave, { ...posicion });
+      rumbosMarcadores.set(clave, rumbo);
+      return rumbo;
+    }
 
 
     const MARCA_PREDETERMINADA = {
@@ -256,7 +494,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
       document.title =
         esJardinMaria
           ? "Jardín de María | Despacho"
-          : "v9.3.3 | Despacho | Ferretería Granados";
+          : "v9.3.4 | Despacho | Ferretería Granados";
 
       if (circuloZona) {
         circuloZona.setOptions({
@@ -2163,7 +2401,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
 
       for (const [uid, marcador] of marcadoresRepartidores) {
         if (!uidsVisibles.has(uid)) {
-          cancelarAnimacionMarcador(`repartidor:${uid}`);
+          const clave = `repartidor:${uid}`;
+          cancelarAnimacionMarcador(clave);
+          rumbosMarcadores.delete(clave);
+          posicionesRumboMarcadores.delete(clave);
           marcador.setMap(null);
           marcadoresRepartidores.delete(uid);
         }
@@ -2178,22 +2419,22 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
           marcadoresRepartidores.get(repartidor.uid);
 
         if (!marcador) {
-          marcador = new google.maps.Marker({
+          const claveRumbo = `repartidor:${repartidor.uid}`;
+          const rumboInicial = obtenerRumboVehiculo(
+            repartidor.ubicacion,
+            posicion,
+            claveRumbo
+          );
+
+          marcador = crearMarcadorVehiculoRotable({
             map: mapa,
             position: posicion,
             title: nombreVisibleRepartidor(repartidor),
-            optimized: false,
-            icon: {
-              url: CONFIG.pinVehiculoUrl,
-              scaledSize: new google.maps.Size(56, 37),
-
-              /*
-               * El punto GPS se coloca aproximadamente
-               * debajo del centro de las ruedas.
-               */
-              anchor: new google.maps.Point(28, 30)
-            },
-            zIndex: 40
+            imageUrl: CONFIG.pinVehiculoUrl,
+            width: 56,
+            height: 37,
+            zIndex: 40,
+            heading: rumboInicial
           });
 
           marcador.addListener("click", () => {
@@ -2206,9 +2447,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
               contenidoInfoRepartidor(perfilActual)
             );
 
+            infoRepartidorMapa.setPosition(
+              marcador.getPosition()
+            );
+
             infoRepartidorMapa.open({
-              map: mapa,
-              anchor: marcador
+              map: mapa
             });
           });
 
@@ -2221,10 +2465,19 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
             { ...posicion }
           );
         } else {
+          const claveRumbo = `repartidor:${repartidor.uid}`;
+          const rumbo = obtenerRumboVehiculo(
+            repartidor.ubicacion,
+            posicion,
+            claveRumbo
+          );
+
+          marcador.setHeading(rumbo);
+
           animarMarcadorSuave(
             marcador,
             posicion,
-            `repartidor:${repartidor.uid}`,
+            claveRumbo,
             2250
           );
           marcador.setTitle(
@@ -2447,7 +2700,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
 
     function actualizarMarcadorRastreo(
       tipo,
-      posicion
+      posicion,
+      ubicacion = null
     ) {
       if (!mapa || !posicion) return;
 
@@ -2471,20 +2725,22 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
       }
 
       if (!marcadorVehiculoRastreo) {
+        const rumboInicial = obtenerRumboVehiculo(
+          ubicacion,
+          posicion,
+          "rastreo-activo"
+        );
+
         marcadorVehiculoRastreo =
-          new google.maps.Marker({
+          crearMarcadorVehiculoRotable({
             map: mapa,
             position: posicion,
             title: "Repartidor en ruta",
-            optimized: false,
-            icon: {
-              url: CONFIG.pinVehiculoUrl,
-              scaledSize:
-                new google.maps.Size(68, 45),
-              anchor:
-                new google.maps.Point(34, 37)
-            },
-            zIndex: 90
+            imageUrl: CONFIG.pinVehiculoUrl,
+            width: 68,
+            height: 45,
+            zIndex: 90,
+            heading: rumboInicial
           });
 
         objetivosMarcadores.set(
@@ -2492,6 +2748,14 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
           { ...posicion }
         );
       } else {
+        const rumbo = obtenerRumboVehiculo(
+          ubicacion,
+          posicion,
+          "rastreo-activo"
+        );
+
+        marcadorVehiculoRastreo.setHeading(rumbo);
+
         animarMarcadorSuave(
           marcadorVehiculoRastreo,
           posicion,
@@ -2667,7 +2931,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
       if (vehiculo) {
         actualizarMarcadorRastreo(
           "vehiculo",
-          vehiculo
+          vehiculo,
+          datos.ubicacionRepartidor
         );
 
         const distancia =
@@ -2771,6 +3036,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
 
       marcadorDestinoRastreo = null;
       marcadorVehiculoRastreo = null;
+      rumbosMarcadores.delete("rastreo-activo");
+      posicionesRumboMarcadores.delete("rastreo-activo");
     }
 
     function detenerRastreoActivo() {

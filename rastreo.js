@@ -1,4 +1,4 @@
-console.info("Ferretería Granados Rastreo v5 · movimiento fluido cargado");
+console.info("Ferretería Granados Rastreo v5.1 · camioneta direccional cargado");
 
 import {
   initializeApp
@@ -34,6 +34,10 @@ let mapa = null;
 let marcadorOrigen = null;
 let marcadorDestino = null;
 let marcadorCamion = null;
+let ClaseMarcadorCamionRotable = null;
+let rumboCamionActual = 0;
+let posicionAnteriorRumboCamion = null;
+const OFFSET_RUMBO_CAMION = 90;
 
 let cancelarRastreo = null;
 let pedidoActual = null;
@@ -45,6 +49,173 @@ let ultimaRecepcionGpsMs = 0;
 let ultimoObjetivoGps = null;
 
 const $ = (id) => document.getElementById(id);
+
+function obtenerClaseMarcadorCamionRotable() {
+  if (ClaseMarcadorCamionRotable) {
+    return ClaseMarcadorCamionRotable;
+  }
+
+  ClaseMarcadorCamionRotable = class extends google.maps.OverlayView {
+    constructor({ map, position, imageUrl, width, height, title, heading = 0 }) {
+      super();
+      this.position = new google.maps.LatLng(position);
+      this.imageUrl = imageUrl;
+      this.width = width;
+      this.height = height;
+      this.title = title;
+      this.visible = true;
+      this.div = null;
+      this.img = null;
+      this.rotacionContinua = null;
+      this.heading = heading;
+      this.setMap(map);
+    }
+
+    onAdd() {
+      const div = document.createElement("div");
+      div.style.position = "absolute";
+      div.style.width = `${this.width}px`;
+      div.style.height = `${this.height}px`;
+      div.style.zIndex = "20";
+      div.style.display = this.visible ? "block" : "none";
+      div.title = this.title;
+
+      const img = document.createElement("img");
+      img.src = this.imageUrl;
+      img.alt = this.title;
+      img.draggable = false;
+      img.style.width = "100%";
+      img.style.height = "100%";
+      img.style.objectFit = "contain";
+      img.style.display = "block";
+      img.style.transformOrigin = "50% 50%";
+      img.style.transition = "transform 420ms linear";
+      img.style.filter = "drop-shadow(0 2px 2px rgba(0,0,0,.28))";
+
+      div.appendChild(img);
+      this.div = div;
+      this.img = img;
+      this.getPanes().overlayLayer.appendChild(div);
+      this.setHeading(this.heading);
+    }
+
+    draw() {
+      if (!this.div || !this.position) return;
+      const pixel = this.getProjection()?.fromLatLngToDivPixel(this.position);
+      if (!pixel) return;
+
+      this.div.style.left = `${pixel.x - this.width / 2}px`;
+      this.div.style.top = `${pixel.y - this.height / 2}px`;
+    }
+
+    onRemove() {
+      this.div?.remove();
+      this.div = null;
+      this.img = null;
+    }
+
+    setPosition(position) {
+      this.position = position instanceof google.maps.LatLng
+        ? position
+        : new google.maps.LatLng(position);
+      this.draw();
+    }
+
+    getPosition() {
+      return this.position;
+    }
+
+    setVisible(visible) {
+      this.visible = Boolean(visible);
+      if (this.div) {
+        this.div.style.display = this.visible ? "block" : "none";
+      }
+    }
+
+    setHeading(valor) {
+      const heading = ((Number(valor) % 360) + 360) % 360;
+      this.heading = heading;
+      const objetivoBase = heading + OFFSET_RUMBO_CAMION;
+
+      if (this.rotacionContinua === null) {
+        this.rotacionContinua = objetivoBase;
+      } else {
+        const actual = ((this.rotacionContinua % 360) + 360) % 360;
+        const objetivo = ((objetivoBase % 360) + 360) % 360;
+        const diferencia = ((objetivo - actual + 540) % 360) - 180;
+        this.rotacionContinua += diferencia;
+      }
+
+      if (this.img) {
+        this.img.style.transform = `rotate(${this.rotacionContinua}deg)`;
+      }
+    }
+  };
+
+  return ClaseMarcadorCamionRotable;
+}
+
+function crearMarcadorCamionRotable(opciones) {
+  const Clase = obtenerClaseMarcadorCamionRotable();
+  return new Clase(opciones);
+}
+
+function normalizarRumbo(valor) {
+  const numero = Number(valor);
+  if (!Number.isFinite(numero) || numero < 0) return null;
+  return ((numero % 360) + 360) % 360;
+}
+
+function calcularRumbo(origen, destino) {
+  if (!origen || !destino) return null;
+
+  const aRad = (grados) => grados * Math.PI / 180;
+  const lat1 = aRad(origen.lat);
+  const lat2 = aRad(destino.lat);
+  const dLng = aRad(destino.lng - origen.lng);
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x =
+    Math.cos(lat1) * Math.sin(lat2) -
+    Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+
+  const grados = Math.atan2(y, x) * 180 / Math.PI;
+  return ((grados % 360) + 360) % 360;
+}
+
+function distanciaAproxMetros(a, b) {
+  if (!a || !b) return 0;
+  const latPromedio = (a.lat + b.lat) / 2 * Math.PI / 180;
+  const metrosLat = (b.lat - a.lat) * 111320;
+  const metrosLng = (b.lng - a.lng) * 111320 * Math.cos(latPromedio);
+  return Math.hypot(metrosLat, metrosLng);
+}
+
+function obtenerRumboCamion(data, nuevaPosicion) {
+  const rumboGps = normalizarRumbo(
+    data.ubicacionRepartidor?.direccion
+  );
+  const velocidad = Math.max(
+    Number(data.ubicacionRepartidor?.velocidad || 0),
+    0
+  );
+
+  const movimiento = posicionAnteriorRumboCamion
+    ? distanciaAproxMetros(posicionAnteriorRumboCamion, nuevaPosicion)
+    : 0;
+
+  if (rumboGps !== null && (velocidad >= 0.7 || !posicionAnteriorRumboCamion)) {
+    rumboCamionActual = rumboGps;
+  } else if (posicionAnteriorRumboCamion && movimiento >= 1.5) {
+    rumboCamionActual =
+      calcularRumbo(posicionAnteriorRumboCamion, nuevaPosicion) ??
+      rumboCamionActual;
+  } else if (rumboGps !== null && posicionAnteriorRumboCamion === null) {
+    rumboCamionActual = rumboGps;
+  }
+
+  posicionAnteriorRumboCamion = { ...nuevaPosicion };
+  return rumboCamionActual;
+}
 
 function obtenerPedidoId() {
   return (
@@ -355,6 +526,13 @@ function actualizarPantalla(pedidoId, data) {
     posicionCamion = nuevaPosicion;
     marcadorCamion.setVisible(true);
 
+    const rumboCamion = obtenerRumboCamion(
+      data,
+      nuevaPosicion
+    );
+
+    marcadorCamion.setHeading(rumboCamion);
+
     animarMarcador(
       marcadorCamion,
       nuevaPosicion
@@ -456,30 +634,17 @@ function iniciarAplicacion() {
       "https://maps.google.com/mapfiles/ms/icons/red-dot.png"
   });
 
-  marcadorCamion = new google.maps.Marker({
+  marcadorCamion = crearMarcadorCamionRotable({
     map: mapa,
     position: ORIGEN,
-    visible: false,
+    imageUrl: ICONO_CAMION,
+    width: 58,
+    height: 39,
     title: "Repartidor",
-    optimized: false,
-
-    icon: {
-      url: ICONO_CAMION,
-      scaledSize:
-        new google.maps.Size(58, 39),
-
-      /*
-       * La imagen original tiene espacio debajo del
-       * vehículo. Este anclaje coloca la coordenada
-       * GPS debajo del centro de las ruedas y no al
-       * borde inferior de la imagen.
-       */
-      anchor:
-        new google.maps.Point(29, 31)
-    },
-
-    zIndex: 20
+    heading: 0
   });
+
+  marcadorCamion.setVisible(false);
 
   $("btnCentrarMapa").addEventListener(
     "click",
