@@ -1,4 +1,4 @@
-console.info("Ferretería Granados Mostrador v9.3.1 · marca dinámica cargado");
+console.info("Ferretería Granados Mostrador v9.3.2 · Google Maps en rastreo cargado");
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 
@@ -133,7 +133,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
     let datosRastreoActivo = null;
     let marcadorDestinoRastreo = null;
     let marcadorVehiculoRastreo = null;
-    let lineaRastreo = null;
     let vistaRastreoAjustada = false;
 
     let observadorTamanoMapa = null;
@@ -255,7 +254,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
       document.title =
         esJardinMaria
           ? "Jardín de María | Despacho"
-          : "v9.3.1 | Despacho | Ferretería Granados";
+          : "v9.3.2 | Despacho | Ferretería Granados";
 
       if (circuloZona) {
         circuloZona.setOptions({
@@ -2375,36 +2374,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
       }
     }
 
-    function actualizarLineaRastreo(
-      vehiculo,
-      destino
-    ) {
-      if (!mapa) return;
-
-      if (!vehiculo || !destino) {
-        lineaRastreo?.setMap(null);
-        return;
-      }
-
-      const ruta = [vehiculo, destino];
-
-      if (!lineaRastreo) {
-        lineaRastreo =
-          new google.maps.Polyline({
-            map: mapa,
-            path: ruta,
-            geodesic: true,
-            strokeColor: "#2563EB",
-            strokeOpacity: 0.78,
-            strokeWeight: 4,
-            zIndex: 60
-          });
-      } else {
-        lineaRastreo.setPath(ruta);
-        lineaRastreo.setMap(mapa);
-      }
-    }
-
     function centrarRastreoActivo() {
       if (!mapa || !datosRastreoActivo) {
         return;
@@ -2601,11 +2570,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
             : "Esperando una nueva ubicación del repartidor.";
       }
 
-      actualizarLineaRastreo(
-        vehiculo,
-        destino
-      );
-
       if (
         !vistaRastreoAjustada &&
         destino
@@ -2619,14 +2583,64 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
       }
     }
 
+    function abrirRutaGoogleMapsRastreoActivo() {
+      const pedidoPrivado =
+        pedidosActivos.find(
+          (pedido) =>
+            pedido.id === pedidoRastreoActivoId
+        ) || null;
+
+      let enlace =
+        pedidoPrivado
+          ? enlaceNavegacionPedido(
+              pedidoPrivado
+            )
+          : "";
+
+      /*
+       * Si el pedido ya no está en la lista privada,
+       * usar las coordenadas conservadas por el rastreo
+       * público. La URL resultante es la misma que se
+       * envía al repartidor por WhatsApp.
+       */
+      if (!enlace && datosRastreoActivo) {
+        const destino =
+          coordenadasDesdeRastreo(
+            datosRastreoActivo,
+            "destino"
+          );
+
+        if (destino) {
+          enlace =
+            enlaceNavegacionPedido({
+              destino: {
+                latitud: destino.lat,
+                longitud: destino.lng
+              }
+            });
+        }
+      }
+
+      if (!enlace) {
+        alert(
+          "No se encontraron las coordenadas del destino."
+        );
+        return;
+      }
+
+      window.open(
+        enlace,
+        "_blank",
+        "noopener,noreferrer"
+      );
+    }
+
     function limpiarElementosRastreoActivo() {
       marcadorDestinoRastreo?.setMap(null);
       marcadorVehiculoRastreo?.setMap(null);
-      lineaRastreo?.setMap(null);
 
       marcadorDestinoRastreo = null;
       marcadorVehiculoRastreo = null;
-      lineaRastreo = null;
     }
 
     function detenerRastreoActivo() {
@@ -5311,6 +5325,11 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
           pedidoRastreoActivoId
         );
       }
+    );
+
+    $("btnRutaGoogleMapsRastreo").addEventListener(
+      "click",
+      abrirRutaGoogleMapsRastreoActivo
     );
 
     $("btnRecalcularRuta").addEventListener(

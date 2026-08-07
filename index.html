@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>v9.3.1 | Despacho | Ferretería Granados</title>
+  <title>v9.3.2 | Despacho | Ferretería Granados</title>
 
   <style>
     :root {
@@ -329,20 +329,17 @@
       height: 100%;
     }
 
-   .map-overlay {
-  top: 58px;
-  left: 8px;
-  right: 58px; /* deja libre el botón de pantalla completa */
-  width: auto;
-  max-width: none;
-  gap: 6px;
-  align-items: flex-start;
-}
-
-.map-overlay .map-chip {
-  width: auto;
-  max-width: min(280px, 100%);
-}
+    .map-overlay {
+      position: absolute;
+      z-index: 2;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      pointer-events: none;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
 
     .map-chip {
       pointer-events: auto;
@@ -460,19 +457,7 @@
       font-size: 12px;
       line-height: 1.45;
     }
-@media (max-width: 760px) {
 
-  body.modo-pin-manual .map-overlay,
-  body.modo-pin-manual .repartidores-mapa-panel,
-  body.modo-pin-manual .control-tipo-mapa {
-    display: none !important;
-  }
-
-  body.modo-pin-manual .panel-mapa {
-    height: 78dvh;
-    min-height: 520px;
-  }
-}
     @media (max-width: 900px) {
       .layout {
         grid-template-columns: 1fr;
@@ -1310,6 +1295,10 @@
       font-size: 11px;
     }
 
+    .rastreo-activo-acciones .rastreo-ruta-google {
+      grid-column: 1 / -1;
+    }
+
     .rastreo-en-curso .map-overlay {
       max-width: calc(100% - 410px);
     }
@@ -1711,6 +1700,10 @@
 
       .rastreo-activo-acciones {
         grid-template-columns: 1fr;
+      }
+
+      .rastreo-activo-acciones .rastreo-ruta-google {
+        grid-column: auto;
       }
     }
 
@@ -2115,7 +2108,7 @@
 </head>
 
 <body>
-  <!-- FERRETERÍA GRANADOS MOSTRADOR v9.3.1 · MARCA DINÁMICA -->
+  <!-- FERRETERÍA GRANADOS MOSTRADOR v9.3.2 · GOOGLE MAPS EN RASTREO -->
   <section id="loginPage" class="login-page">
     <div class="login-card">
       <h1>Ferretería Granados</h1>
@@ -2550,6 +2543,15 @@
             <button id="btnAbrirRastreoCliente" class="btn-secundario" type="button">
               Vista del cliente
             </button>
+
+            <button
+              id="btnRutaGoogleMapsRastreo"
+              class="btn-verde rastreo-ruta-google"
+              type="button"
+              title="Abrir navegación hacia el destino en Google Maps"
+            >
+              🧭 Ruta en Google Maps
+            </button>
           </div>
         </aside>
 
@@ -2741,7 +2743,7 @@
       </div>
     </div>
   </section>
-  <script type="module" src="./mostrador.js?v=9.3.1"></script>
+  <script type="module" src="./mostrador.js?v=9.3.2"></script>
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
