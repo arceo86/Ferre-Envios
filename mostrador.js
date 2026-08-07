@@ -1,4 +1,4 @@
-console.info("Ferretería Granados Mostrador v9.3.2 · Google Maps en rastreo cargado");
+console.info("Ferretería Granados Mostrador v9.3.3 · GPS fluido cargado");
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 
@@ -126,6 +126,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
     let temporizadorRepartidoresMapa = null;
     let infoRepartidorMapa = null;
     const marcadoresRepartidores = new Map();
+    const animacionesMarcadores = new Map();
+    const objetivosMarcadores = new Map();
 
     let cancelarEscuchaRastreoActivo = null;
     let pedidoRastreoActivoId = "";
@@ -254,7 +256,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
       document.title =
         esJardinMaria
           ? "Jardín de María | Despacho"
-          : "v9.3.2 | Despacho | Ferretería Granados";
+          : "v9.3.3 | Despacho | Ferretería Granados";
 
       if (circuloZona) {
         circuloZona.setOptions({
@@ -2042,6 +2044,112 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
       `;
     }
 
+    function posicionesIguales(a, b, tolerancia = 0.0000002) {
+      if (!a || !b) return false;
+
+      return (
+        Math.abs(Number(a.lat) - Number(b.lat)) <= tolerancia &&
+        Math.abs(Number(a.lng) - Number(b.lng)) <= tolerancia
+      );
+    }
+
+    function cancelarAnimacionMarcador(clave) {
+      const id = animacionesMarcadores.get(clave);
+
+      if (id) {
+        cancelAnimationFrame(id);
+      }
+
+      animacionesMarcadores.delete(clave);
+      objetivosMarcadores.delete(clave);
+    }
+
+    function animarMarcadorSuave(
+      marcador,
+      nuevaPosicion,
+      clave,
+      duracion = 2250
+    ) {
+      if (!marcador || !nuevaPosicion) return;
+
+      const objetivoAnterior = objetivosMarcadores.get(clave);
+
+      /*
+       * El listener de repartidores también se refresca por tiempo.
+       * Si la coordenada no cambió, no reiniciar la animación.
+       */
+      if (posicionesIguales(objetivoAnterior, nuevaPosicion)) {
+        return;
+      }
+
+      const posicionActual = marcador.getPosition?.();
+
+      if (!posicionActual) {
+        marcador.setPosition(nuevaPosicion);
+        objetivosMarcadores.set(clave, { ...nuevaPosicion });
+        return;
+      }
+
+      const inicio = {
+        lat: posicionActual.lat(),
+        lng: posicionActual.lng()
+      };
+
+      /*
+       * Si aparece una coordenada extremadamente lejana, no animarla
+       * atravesando el mapa: se considera corrección/salto de GPS.
+       */
+      const salto = Math.hypot(
+        nuevaPosicion.lat - inicio.lat,
+        nuevaPosicion.lng - inicio.lng
+      );
+
+      if (salto > 0.025) {
+        cancelarAnimacionMarcador(clave);
+        marcador.setPosition(nuevaPosicion);
+        objetivosMarcadores.set(clave, { ...nuevaPosicion });
+        return;
+      }
+
+      const anteriorId = animacionesMarcadores.get(clave);
+      if (anteriorId) cancelAnimationFrame(anteriorId);
+
+      objetivosMarcadores.set(clave, { ...nuevaPosicion });
+      const comienzo = performance.now();
+
+      const cuadro = (ahora) => {
+        const progreso = Math.min(
+          Math.max((ahora - comienzo) / duracion, 0),
+          1
+        );
+
+        /*
+         * Interpolación lineal: mantiene velocidad visual uniforme
+         * entre dos posiciones GPS y evita el efecto de saltos.
+         */
+        marcador.setPosition({
+          lat: inicio.lat +
+            (nuevaPosicion.lat - inicio.lat) * progreso,
+          lng: inicio.lng +
+            (nuevaPosicion.lng - inicio.lng) * progreso
+        });
+
+        if (progreso < 1) {
+          animacionesMarcadores.set(
+            clave,
+            requestAnimationFrame(cuadro)
+          );
+        } else {
+          animacionesMarcadores.delete(clave);
+        }
+      };
+
+      animacionesMarcadores.set(
+        clave,
+        requestAnimationFrame(cuadro)
+      );
+    }
+
     function actualizarRepartidoresEnMapa() {
       if (!mapa) return;
 
@@ -2055,6 +2163,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
 
       for (const [uid, marcador] of marcadoresRepartidores) {
         if (!uidsVisibles.has(uid)) {
+          cancelarAnimacionMarcador(`repartidor:${uid}`);
           marcador.setMap(null);
           marcadoresRepartidores.delete(uid);
         }
@@ -2107,8 +2216,17 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
             repartidor.uid,
             marcador
           );
+          objetivosMarcadores.set(
+            `repartidor:${repartidor.uid}`,
+            { ...posicion }
+          );
         } else {
-          marcador.setPosition(posicion);
+          animarMarcadorSuave(
+            marcador,
+            posicion,
+            `repartidor:${repartidor.uid}`,
+            2250
+          );
           marcador.setTitle(
             nombreVisibleRepartidor(repartidor)
           );
@@ -2368,8 +2486,18 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
             },
             zIndex: 90
           });
+
+        objetivosMarcadores.set(
+          "rastreo-activo",
+          { ...posicion }
+        );
       } else {
-        marcadorVehiculoRastreo.setPosition(posicion);
+        animarMarcadorSuave(
+          marcadorVehiculoRastreo,
+          posicion,
+          "rastreo-activo",
+          2250
+        );
         marcadorVehiculoRastreo.setMap(mapa);
       }
     }
@@ -2636,6 +2764,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
     }
 
     function limpiarElementosRastreoActivo() {
+      cancelarAnimacionMarcador("rastreo-activo");
+
       marcadorDestinoRastreo?.setMap(null);
       marcadorVehiculoRastreo?.setMap(null);
 
@@ -5511,6 +5641,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
 
       secuenciaRuta += 1;
       limpiarPolilineaRuta();
+
+      for (const clave of [...animacionesMarcadores.keys()]) {
+        cancelarAnimacionMarcador(clave);
+      }
 
       for (const marcador of marcadoresRepartidores.values()) {
         marcador.setMap(null);

@@ -1,4 +1,4 @@
-console.info("Ferretería Granados Rastreo v4 cargado");
+console.info("Ferretería Granados Rastreo v5 · movimiento fluido cargado");
 
 import {
   initializeApp
@@ -41,6 +41,8 @@ let posicionCamion = null;
 
 let vistaInicialAjustada = false;
 let animacionMarcadorId = null;
+let ultimaRecepcionGpsMs = 0;
+let ultimoObjetivoGps = null;
 
 const $ = (id) => document.getElementById(id);
 
@@ -187,11 +189,39 @@ function obtenerPosicionRepartidor(pedido) {
   };
 }
 
+function posicionesIguales(a, b, tolerancia = 0.0000002) {
+  if (!a || !b) return false;
+  return (
+    Math.abs(a.lat - b.lat) <= tolerancia &&
+    Math.abs(a.lng - b.lng) <= tolerancia
+  );
+}
+
 function animarMarcador(
   marcador,
-  nuevaPosicion,
-  duracion = 1600
+  nuevaPosicion
 ) {
+  if (posicionesIguales(ultimoObjetivoGps, nuevaPosicion)) {
+    return;
+  }
+
+  const ahoraRecepcion = performance.now();
+  const intervalo = ultimaRecepcionGpsMs
+    ? ahoraRecepcion - ultimaRecepcionGpsMs
+    : 2200;
+
+  ultimaRecepcionGpsMs = ahoraRecepcion;
+  ultimoObjetivoGps = { ...nuevaPosicion };
+
+  /*
+   * La animación ocupa casi todo el tiempo entre muestras GPS.
+   * Así la camioneta no avanza, se detiene y vuelve a saltar.
+   */
+  const duracion = Math.min(
+    Math.max(intervalo * 1.08, 1400),
+    3400
+  );
+
   if (animacionMarcadorId) {
     cancelAnimationFrame(animacionMarcadorId);
   }
@@ -205,6 +235,17 @@ function animarMarcador(
 
   const latInicial = inicio.lat();
   const lngInicial = inicio.lng();
+
+  const salto = Math.hypot(
+    nuevaPosicion.lat - latInicial,
+    nuevaPosicion.lng - lngInicial
+  );
+
+  if (salto > 0.025) {
+    marcador.setPosition(nuevaPosicion);
+    return;
+  }
+
   const tiempoInicial = performance.now();
 
   function cuadro(tiempoActual) {
@@ -214,12 +255,9 @@ function animarMarcador(
     );
 
     marcador.setPosition({
-      lat:
-        latInicial +
+      lat: latInicial +
         (nuevaPosicion.lat - latInicial) * progreso,
-
-      lng:
-        lngInicial +
+      lng: lngInicial +
         (nuevaPosicion.lng - lngInicial) * progreso
     });
 
