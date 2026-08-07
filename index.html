@@ -178,7 +178,19 @@
       background: #fff;
       color: #101828;
       outline: none;
+    }
+
+    input:not([type="password"]),
+    textarea {
       text-transform: uppercase;
+    }
+
+    input[type="password"] {
+      text-transform: none;
+    }
+
+    input[type="email"] {
+      text-transform: lowercase;
     }
 
     textarea {
@@ -2104,6 +2116,7 @@
     type="password"
     autocomplete="current-password"
     placeholder="Contraseña"
+    style="text-transform: none;"
   />
 
   <button
@@ -2717,43 +2730,6 @@
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      const upperCaseField = (field) => {
-        if (!field || field.tagName === 'SELECT') return;
-
-        const type = (field.type || '').toLowerCase();
-        const isTextLike =
-          type === 'text' ||
-          type === 'search' ||
-          type === 'tel' ||
-          type === 'url' ||
-          //type === 'email' ||
-         // type === 'password' ||
-          field.tagName === 'TEXTAREA';
-
-        if (!isTextLike || ['hidden', 'button', 'submit', 'reset', 'checkbox', 'radio'].includes(type)) {
-          return;
-        }
-
-        const normalize = () => {
-          const start = field.selectionStart;
-          const end = field.selectionEnd;
-          field.value = field.value.toUpperCase();
-          if (typeof start === 'number' && typeof end === 'number') {
-            field.setSelectionRange(start, end);
-          }
-        };
-
-        field.addEventListener('input', normalize);
-        field.addEventListener('blur', normalize);
-        field.addEventListener('paste', () => setTimeout(normalize, 0));
-        normalize();
-      };
-
-      document.querySelectorAll('input, textarea').forEach(upperCaseField);
-    });
-  </script>
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
       const normalizeField = (field) => {
         if (!field || field.tagName === 'SELECT' || field.hidden) return;
 
@@ -2763,11 +2739,14 @@
           type === 'search' ||
           type === 'tel' ||
           type === 'url' ||
-         // type === 'email' ||
-         // type === 'password' ||
+          type === 'email' ||
           field.tagName === 'TEXTAREA';
 
         if (!isTextLike || ['hidden', 'button', 'submit', 'reset', 'checkbox', 'radio'].includes(type)) {
+          return;
+        }
+
+        if (field.id === 'loginPassword' || field.id === 'repartidorPassword' || field.id === 'repartidorPasswordConfirmar') {
           return;
         }
 
@@ -2796,18 +2775,19 @@
         }
       }, true);
     });
+
     const btnVerPassword = document.getElementById('btnVerPassword');
-const loginPassword = document.getElementById('loginPassword');
+    const loginPassword = document.getElementById('loginPassword');
 
-btnVerPassword.addEventListener('click', () => {
-  const visible = loginPassword.type === 'text';
+    if (btnVerPassword && loginPassword) {
+      btnVerPassword.addEventListener('click', () => {
+        const visible = loginPassword.type === 'text';
 
-  loginPassword.type = visible ? 'password' : 'text';
-  btnVerPassword.textContent = visible ? '👁' : '🙈';
-  btnVerPassword.title = visible
-    ? 'Mostrar contraseña'
-    : 'Ocultar contraseña';
-});
+        loginPassword.type = visible ? 'password' : 'text';
+        btnVerPassword.textContent = visible ? '👁' : '🙈';
+        btnVerPassword.title = visible ? 'Mostrar contraseña' : 'Ocultar contraseña';
+      });
+    }
   </script>
 
   <!-- Sustituye TU_API_KEY por tu clave restringida de Google Maps. -->
