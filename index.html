@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>v8.7 | Despacho | Ferretería Granados</title>
+  <title>v9.3 | Despacho | Ferretería Granados</title>
 
   <style>
     :root {
@@ -178,6 +178,11 @@
       background: #fff;
       color: #101828;
       outline: none;
+      text-transform: uppercase;
+    }
+
+    input[type="email"] {
+      text-transform: lowercase;
     }
 
     textarea {
@@ -1383,11 +1388,575 @@
       }
     }
 
+
+    /* ===== Avisos de WhatsApp al repartidor v8.8 ===== */
+    .whatsapp.repartidor {
+      background: #128c7e;
+    }
+
+    .whatsapp.cliente {
+      background: #25d366;
+    }
+
+    .resultado-whatsapp-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .resultado-whatsapp-grid .whatsapp {
+      margin-top: 0;
+    }
+
+    .pedido-activo-acciones .btn-whatsapp-repartidor {
+      grid-column: 1 / -1;
+      background: #128c7e;
+      color: #ffffff;
+    }
+
+    .pedido-activo-acciones .btn-whatsapp-repartidor:hover {
+      background: #0f766e;
+    }
+
+    .telefono-faltante {
+      color: #b45309 !important;
+      font-weight: 700;
+    }
+
+    @media (max-width: 650px) {
+      .resultado-whatsapp-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+
+    /* =======================================================
+       Diseño adaptable a cualquier pantalla v9.0
+       ======================================================= */
+
+    html {
+      width: 100%;
+      height: 100%;
+      min-height: 100%;
+    }
+
+    body {
+      width: 100%;
+      min-height: 100%;
+      min-height: 100svh;
+      min-height: 100dvh;
+    }
+
+    .login-page {
+      min-height: 100vh;
+      min-height: 100svh;
+      min-height: 100dvh;
+    }
+
+    /*
+     * ESCRITORIO:
+     * La barra superior ocupa solo lo necesario.
+     * El formulario y el mapa llenan exactamente el espacio
+     * restante de la pantalla.
+     */
+    @media (min-width: 1101px) {
+      body {
+        overflow: hidden;
+      }
+
+      .app-shell {
+        width: 100%;
+        height: 100vh;
+        height: 100svh;
+        height: 100dvh;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        padding:
+          clamp(8px, 1.25vw, 18px);
+        overflow: hidden;
+      }
+
+      .topbar {
+        flex: 0 0 auto;
+        width: 100%;
+        max-width: none;
+        margin:
+          0 0 clamp(8px, 1.25vw, 18px);
+      }
+
+      .layout {
+        flex: 1 1 auto;
+        width: 100%;
+        max-width: none;
+        min-height: 0;
+        height: 0;
+        grid-template-columns:
+          clamp(350px, 31vw, 475px)
+          minmax(0, 1fr);
+        align-items: stretch;
+        overflow: hidden;
+      }
+
+      .panel-formulario {
+        height: 100%;
+        min-height: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-gutter: stable;
+      }
+
+      .panel-mapa {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      #map {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+      }
+    }
+
+    /*
+     * TABLETA Y TELÉFONO:
+     * El formulario y el mapa se apilan para evitar que
+     * queden demasiado estrechos. Toda la página puede
+     * desplazarse verticalmente.
+     */
+    @media (max-width: 1100px) {
+      body {
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+
+      .app-shell {
+        width: 100%;
+        min-height: 100vh;
+        min-height: 100svh;
+        min-height: 100dvh;
+        height: auto;
+        overflow: visible;
+      }
+
+      .topbar,
+      .layout {
+        width: 100%;
+        max-width: none;
+      }
+
+      .layout {
+        height: auto;
+        min-height: 0;
+        overflow: visible;
+      }
+
+      .panel-formulario {
+        height: auto;
+        max-height: none;
+        overflow: visible;
+      }
+
+      .panel-mapa {
+        width: 100%;
+        height: clamp(420px, 62svh, 720px);
+        height: clamp(420px, 62dvh, 720px);
+        min-height: 420px;
+        overflow: hidden;
+      }
+
+      #map {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+      }
+    }
+
+    /*
+     * TELÉFONOS:
+     * Se aprovecha todo el ancho, se reducen márgenes y
+     * los controles del mapa se reacomodan.
+     */
+    @media (max-width: 760px) {
+      .app-shell {
+        padding:
+          max(6px, env(safe-area-inset-top))
+          max(6px, env(safe-area-inset-right))
+          max(8px, env(safe-area-inset-bottom))
+          max(6px, env(safe-area-inset-left));
+      }
+
+      .topbar {
+        margin-bottom: 8px;
+        border-radius: 13px;
+      }
+
+      .layout {
+        gap: 8px;
+      }
+
+      .panel {
+        border-radius: 14px;
+      }
+
+      .panel-formulario {
+        padding: 14px;
+      }
+
+      .panel-mapa {
+        height: max(390px, 65svh);
+        height: max(390px, 65dvh);
+        min-height: 390px;
+      }
+
+      .control-tipo-mapa {
+        top: 8px;
+        left: 8px;
+        right: 8px;
+        width: auto;
+        transform: none;
+      }
+
+      .map-overlay {
+        top: 58px;
+        left: 8px;
+        right: 8px;
+        width: auto;
+        max-width: none;
+        gap: 6px;
+      }
+
+      .map-chip {
+        padding: 7px 9px;
+        font-size: 10px;
+      }
+
+      .repartidores-mapa-panel {
+        max-height: min(215px, 40%);
+      }
+
+      .repartidores-activos-lista {
+        max-height: 145px;
+      }
+
+      .rastreo-activo-panel {
+        max-height: min(58%, 390px);
+      }
+    }
+
+    /*
+     * Teléfonos angostos.
+     */
+    @media (max-width: 480px) {
+      .marca-icono {
+        width: 38px;
+        height: 38px;
+      }
+
+      .marca h1 {
+        font-size: 16px;
+      }
+
+      .marca small {
+        font-size: 11px;
+      }
+
+      .acciones-topbar {
+        grid-template-columns: 1fr;
+      }
+
+      .fila {
+        grid-template-columns: minmax(0, 1fr) 92px;
+      }
+
+      .campo-ayuda {
+        flex-direction: column;
+        gap: 3px;
+      }
+
+      .rastreo-activo-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .rastreo-activo-dato.ancho {
+        grid-column: auto;
+      }
+
+      .rastreo-activo-acciones {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /*
+     * Pantallas bajas, como laptops pequeñas o teléfono
+     * en posición horizontal.
+     */
+    @media (min-width: 1101px) and (max-height: 760px) {
+      .app-shell {
+        padding: 8px;
+      }
+
+      .topbar {
+        min-height: 54px;
+        margin-bottom: 8px;
+        padding: 8px 12px;
+      }
+
+      .marca-icono {
+        width: 38px;
+        height: 38px;
+      }
+
+      .acciones-topbar button {
+        min-height: 37px;
+        padding: 7px 9px;
+        font-size: 12px;
+      }
+
+      .panel-formulario {
+        padding: 16px;
+      }
+
+      .seccion {
+        margin-top: 13px;
+        padding-top: 13px;
+      }
+    }
+
+    /*
+     * La vista horizontal de teléfonos/tabletas conserva
+     * suficiente altura útil para el mapa.
+     */
+    @media (max-width: 1100px) and (orientation: landscape) and (max-height: 600px) {
+      .panel-mapa {
+        height: max(330px, 82svh);
+        height: max(330px, 82dvh);
+        min-height: 330px;
+      }
+    }
+
+
+    /* ===== Distancia y tiempo reales por carretera v9.1 ===== */
+    .ruta-resumen {
+      margin-top: 11px;
+      padding: 12px;
+      border: 1px solid #d0d5dd;
+      border-radius: 12px;
+      background: #f9fafb;
+    }
+
+    .ruta-resumen.calculando {
+      border-color: #93c5fd;
+      background: #eff6ff;
+    }
+
+    .ruta-resumen.lista {
+      border-color: #86efac;
+      background: #f0fdf4;
+    }
+
+    .ruta-resumen.advertencia {
+      border-color: #fcd34d;
+      background: #fffbeb;
+    }
+
+    .ruta-resumen.error {
+      border-color: #fda29b;
+      background: #fef3f2;
+    }
+
+    .ruta-resumen-cabecera {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .ruta-resumen-cabecera strong {
+      color: #101828;
+      font-size: 13px;
+    }
+
+    .ruta-resumen-cabecera button {
+      min-height: 32px;
+      padding: 6px 9px;
+      border-radius: 8px;
+      font-size: 10px;
+    }
+
+    .ruta-resumen-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .ruta-dato {
+      min-width: 0;
+      padding: 9px;
+      border: 1px solid rgba(208, 213, 221, 0.85);
+      border-radius: 9px;
+      background: rgba(255, 255, 255, 0.82);
+    }
+
+    .ruta-dato small {
+      display: block;
+      margin-bottom: 4px;
+      color: #667085;
+      font-size: 9px;
+      font-weight: 800;
+      line-height: 1.25;
+      text-transform: uppercase;
+    }
+
+    .ruta-dato strong {
+      display: block;
+      overflow: hidden;
+      color: #101828;
+      font-size: 13px;
+      line-height: 1.3;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .ruta-mensaje {
+      margin: 9px 0 0;
+      color: #475467;
+      font-size: 10px;
+      line-height: 1.4;
+    }
+
+    .ruta-resumen.error .ruta-mensaje {
+      color: #b42318;
+    }
+
+    .ruta-resumen.advertencia .ruta-mensaje {
+      color: #92400e;
+    }
+
+    .chip-ruta-real {
+      border-color: #86efac !important;
+      background: rgba(240, 253, 244, 0.97) !important;
+      color: #166534;
+    }
+
+    .chip-ruta-fallback {
+      border-color: #fcd34d !important;
+      background: rgba(255, 251, 235, 0.97) !important;
+      color: #92400e;
+    }
+
+    @media (max-width: 480px) {
+      .ruta-resumen-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .ruta-dato strong {
+        white-space: normal;
+      }
+    }
+
+
+    /* ===== Entrega local / por municipio v9.2 ===== */
+    .tipo-entrega-box {
+      margin-top: 10px;
+      padding: 11px 12px;
+      border: 1px solid #d0d5dd;
+      border-radius: 11px;
+      background: #f9fafb;
+      color: #475467;
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .tipo-entrega-box.local {
+      border-color: #86efac;
+      background: #f0fdf4;
+      color: #166534;
+    }
+
+    .tipo-entrega-box.foranea {
+      border-color: #93c5fd;
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+
+    .direccion-modo {
+      margin-top: 11px;
+      padding: 12px;
+      border: 1px solid #eaecf0;
+      border-radius: 12px;
+      background: #fcfcfd;
+    }
+
+    .direccion-modo h3 {
+      margin: 0 0 9px;
+      color: #101828;
+      font-size: 13px;
+    }
+
+    .direccion-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .direccion-grid .ancho-completo {
+      grid-column: 1 / -1;
+    }
+
+    .campo-opcional {
+      color: #667085;
+      font-size: 10px;
+      font-weight: 500;
+    }
+
+    .catalogo-calles-estado {
+      margin-top: 5px;
+      color: #667085;
+      font-size: 10px;
+      line-height: 1.35;
+    }
+
+    .catalogo-calles-estado.ok {
+      color: #166534;
+    }
+
+    .catalogo-calles-estado.alerta {
+      color: #92400e;
+    }
+
+    @media (max-width: 650px) {
+      .direccion-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .direccion-grid .ancho-completo {
+        grid-column: auto;
+      }
+    }
+
+
+    /* ===== Botón regresar al origen v9.3 ===== */
+    .btn-regresar-origen {
+      background: #ffffff !important;
+      color: #101828 !important;
+      border: 1px solid #d0d5dd !important;
+    }
+
+    .btn-regresar-origen:hover {
+      background: #f2f4f7 !important;
+    }
+
   </style>
 </head>
 
 <body>
-  <!-- FERRETERÍA GRANADOS MOSTRADOR v8.7 -->
+  <!-- FERRETERÍA GRANADOS MOSTRADOR v9.3 -->
   <section id="loginPage" class="login-page">
     <div class="login-card">
       <h1>Ferretería Granados</h1>
@@ -1440,17 +2009,144 @@
           <label for="cliente">Nombre del cliente</label>
           <input id="cliente" placeholder="Nombre del cliente" />
 
-          <div class="fila">
-            <div>
-              <label for="selectCalle">Calle</label>
-              <select id="selectCalle">
-                <option value="">-- Seleccionar calle --</option>
-              </select>
+          <label for="tipoDestino">Área de entrega</label>
+          <select id="tipoDestino">
+            <option value="san_andres">
+              San Andrés · seleccionar calle del catálogo
+            </option>
+            <option value="otro_municipio">
+              Otra localidad o municipio · dirección completa
+            </option>
+          </select>
+
+          <div id="tipoDestinoAviso" class="tipo-entrega-box local">
+            <strong>Entrega local en San Andrés.</strong>
+            La calle se selecciona desde la colección de Firestore.
+          </div>
+
+          <div id="direccionSanAndres" class="direccion-modo">
+            <h3>Dirección en San Andrés</h3>
+
+            <div class="fila">
+              <div>
+                <label for="selectCalle">Calle</label>
+                <select id="selectCalle">
+                  <option value="">-- Seleccionar calle --</option>
+                </select>
+
+                <div id="estadoCatalogoCalles" class="catalogo-calles-estado">
+                  Cargando catálogo de calles...
+                </div>
+              </div>
+
+              <div>
+                <label for="numExterior">Número</label>
+                <input
+                  id="numExterior"
+                  placeholder="Ej. 25"
+                  autocomplete="address-line2"
+                />
+              </div>
             </div>
 
-            <div>
-              <label for="numExterior">Número</label>
-              <input id="numExterior" placeholder="Ej. 25" />
+            <label for="referenciasSanAndres">
+              Referencias
+              <span class="campo-opcional">(opcional)</span>
+            </label>
+            <textarea
+              id="referenciasSanAndres"
+              maxlength="500"
+              placeholder="Ej. Casa azul, frente a la plaza, portón negro."
+            ></textarea>
+          </div>
+
+          <div id="direccionExterna" class="direccion-modo oculto">
+            <h3>Dirección completa fuera de San Andrés</h3>
+
+            <div class="direccion-grid">
+              <div>
+                <label for="calleExterna">Calle, carretera o camino</label>
+                <input
+                  id="calleExterna"
+                  placeholder="Ej. Calle Hidalgo"
+                  autocomplete="address-line1"
+                />
+              </div>
+
+              <div>
+                <label for="numeroExterno">Número, lote o kilómetro</label>
+                <input
+                  id="numeroExterno"
+                  placeholder="Ej. 106, S/N, Km 4"
+                  autocomplete="address-line2"
+                />
+              </div>
+
+              <div>
+                <label for="coloniaExterna">
+                  Colonia, comunidad o ejido
+                  <span class="campo-opcional">(opcional)</span>
+                </label>
+                <input
+                  id="coloniaExterna"
+                  placeholder="Ej. Centro"
+                  autocomplete="address-level3"
+                />
+              </div>
+
+              <div>
+                <label for="localidadExterna">Localidad o ciudad</label>
+                <input
+                  id="localidadExterna"
+                  placeholder="Ej. Magdalena"
+                  autocomplete="address-level2"
+                />
+              </div>
+
+              <div>
+                <label for="municipioExterno">Municipio</label>
+                <input
+                  id="municipioExterno"
+                  placeholder="Ej. Magdalena"
+                  autocomplete="address-level2"
+                />
+              </div>
+
+              <div>
+                <label for="estadoExterno">Estado</label>
+                <input
+                  id="estadoExterno"
+                  value="Jalisco"
+                  placeholder="Ej. Jalisco"
+                  autocomplete="address-level1"
+                />
+              </div>
+
+              <div>
+                <label for="codigoPostalExterno">
+                  Código postal
+                  <span class="campo-opcional">(opcional)</span>
+                </label>
+                <input
+                  id="codigoPostalExterno"
+                  inputmode="numeric"
+                  maxlength="5"
+                  placeholder="Ej. 46470"
+                  autocomplete="postal-code"
+                />
+              </div>
+
+              <div class="ancho-completo">
+                <label for="referenciasExterna">
+                  Referencias para encontrar el domicilio
+                  <span class="campo-opcional">(opcional)</span>
+                </label>
+                <textarea
+                  id="referenciasExterna"
+                  maxlength="500"
+                  placeholder="Ej. Rancho con portón rojo, a 300 metros de la carretera."
+                ></textarea>
+              </div>
             </div>
           </div>
 
@@ -1471,6 +2167,42 @@
           <div id="pinManualEstado" class="pin-ayuda">
             Puedes buscar la dirección o pulsar <strong>Elegir en el mapa</strong>.
             Después toca el punto exacto y también podrás arrastrar el marcador.
+          </div>
+
+          <div id="rutaResumen" class="ruta-resumen">
+            <div class="ruta-resumen-cabecera">
+              <strong>🚚 Ruta por carretera</strong>
+
+              <button
+                id="btnRecalcularRuta"
+                class="btn-claro"
+                type="button"
+                disabled
+              >
+                ↻ Recalcular
+              </button>
+            </div>
+
+            <div class="ruta-resumen-grid">
+              <div class="ruta-dato">
+                <small>Distancia real</small>
+                <strong id="rutaDistancia">—</strong>
+              </div>
+
+              <div class="ruta-dato">
+                <small>Tiempo estimado</small>
+                <strong id="rutaDuracion">—</strong>
+              </div>
+
+              <div class="ruta-dato">
+                <small>Llegada estimada</small>
+                <strong id="rutaLlegada">—</strong>
+              </div>
+            </div>
+
+            <p id="rutaMensaje" class="ruta-mensaje">
+              Selecciona un destino para calcular la ruta.
+            </p>
           </div>
 
           <div class="botones botones-dos">
@@ -1554,6 +2286,15 @@
           >
             🛰️ Satélite
           </button>
+
+          <button
+            id="btnRegresarOrigen"
+            class="btn-regresar-origen"
+            type="button"
+            title="Regresar la vista a la ferretería"
+          >
+            🏠 Origen
+          </button>
         </div>
 
         <div class="map-overlay">
@@ -1564,7 +2305,7 @@
           </div>
 
           <div id="chipDistancia" class="map-chip">
-            <strong>Destino</strong>
+            <strong>Ruta por carretera</strong>
             Pendiente
           </div>
 
@@ -1640,7 +2381,7 @@
           <div class="repartidores-mapa-header">
             <div>
               <h3>Repartidores activos: <span id="contadorRepartidoresMapa">0</span></h3>
-              <small>Ubicación recibida desde sus teléfonos</small>
+              <small>Solo aparecen ubicaciones actualizadas en los últimos 5 minutos</small>
             </div>
 
             <button id="btnCentrarRepartidores" class="btn-azul" type="button">
@@ -1673,8 +2414,9 @@
       <label for="repartidorNombre">Nombre completo</label>
       <input id="repartidorNombre" autocomplete="name" placeholder="Ej. Juan Pérez" />
 
-      <label for="repartidorTelefono">Teléfono</label>
-      <input id="repartidorTelefono" type="tel" autocomplete="tel" placeholder="Ej. 33 1234 5678" />
+      <label for="repartidorTelefono">Teléfono de WhatsApp</label>
+      <input id="repartidorTelefono" type="tel" inputmode="numeric" autocomplete="tel" placeholder="Ej. 33 1234 5678" />
+      <div class="mini">México: escribe los 10 dígitos. El sistema agregará automáticamente el prefijo 52.</div>
 
       <label for="repartidorCorreo">Correo para iniciar sesión</label>
       <input id="repartidorCorreo" type="email" autocomplete="off" placeholder="repartidor@granados.com" />
@@ -1823,11 +2565,57 @@
       </div>
     </div>
   </section>
-  <script type="module" src="./mostrador.js?v=8.7"></script>
+  <script type="module" src="./mostrador.js?v=9.3"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const normalizeField = (field) => {
+        if (!field || field.tagName === 'SELECT' || field.hidden) return;
+
+        const type = (field.type || '').toLowerCase();
+        const isTextLike =
+          type === 'text' ||
+          type === 'search' ||
+          type === 'tel' ||
+          type === 'url' ||
+          type === 'email' ||
+         // type === 'password' ||
+          field.tagName === 'TEXTAREA';
+
+        if (!isTextLike || ['hidden', 'button', 'submit', 'reset', 'checkbox', 'radio'].includes(type)) {
+          return;
+        }
+
+        const shouldLowercase = field.id === 'loginEmail' || field.id === 'repartidorCorreo' || type === 'email';
+        const start = field.selectionStart;
+        const end = field.selectionEnd;
+        const nextValue = shouldLowercase ? field.value.toLowerCase() : field.value.toUpperCase();
+
+        if (field.value !== nextValue) {
+          field.value = nextValue;
+        }
+
+        if (typeof start === 'number' && typeof end === 'number') {
+          const nextStart = Math.min(start, nextValue.length);
+          const nextEnd = Math.min(end, nextValue.length);
+          field.setSelectionRange(nextStart, nextEnd);
+        }
+      };
+
+      document.querySelectorAll('input, textarea').forEach(normalizeField);
+
+      document.addEventListener('input', (event) => {
+        const field = event.target;
+        if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) {
+          normalizeField(field);
+        }
+      }, true);
+    });
+  </script>
 
   <!-- Sustituye TU_API_KEY por tu clave restringida de Google Maps. -->
   <script
-    src="https://maps.googleapis.com/maps/api/js?key=TU_API_KEY&libraries=geocoding&language=es&region=MX"
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAULZVgzMl8aubVLoqJyLs_ftyfb0E8D8o&libraries=geocoding&language=es&region=MX&v=weekly"
     defer>
   </script>
 </body>
